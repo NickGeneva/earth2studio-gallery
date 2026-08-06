@@ -1,0 +1,67 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "earth2studio-gallery"
+version = "0.1.0"
+description = "Fast, UV-native executable example galleries for MkDocs Material"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "NVIDIA" }]
+dependencies = [
+  "mkdocs>=1.6.1,<2",
+  "mkdocs-material>=9.7.7,<10",
+  "pillow>=11.0",
+  "psutil>=7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/NickGeneva/earth2studio-gallery"
+Documentation = "https://nickgeneva.github.io/earth2studio-gallery/"
+Issues = "https://github.com/NickGeneva/earth2studio-gallery/issues"
+
+[project.optional-dependencies]
+dev = [
+  "black>=26.3",
+  "mypy>=1.15",
+  "pre-commit>=4.2",
+  "pytest>=8.3",
+  "pytest-cov>=6",
+  "ruff>=0.9",
+]
+
+[project.scripts]
+e2s-gallery = "earth2studio_gallery.cli:main"
+
+[project.entry-points."mkdocs.plugins"]
+earth2studio-gallery = "earth2studio_gallery.plugin:GalleryPlugin"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/earth2studio_gallery"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.earth2studio-gallery]
+examples_dir = "docs/examples"
+collect_telemetry = true
+telemetry_interval = 1.0
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_configs = true
+exclude = ["docs/examples"]

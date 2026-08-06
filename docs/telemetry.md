@@ -1,0 +1,49 @@
+# Runtime telemetry
+
+An example can include an execution profile at the bottom of its generated page. The panel
+is designed to answer the practical questions that matter for GPU-heavy examples: how long
+the run took, where time was spent, how much CPU and memory it used, which GPU ran it, and
+how heavily that GPU was used.
+
+## Enable collection
+
+Telemetry is off by default. Enable it in `pyproject.toml`:
+
+```toml
+[tool.earth2studio-gallery]
+collect_telemetry = true
+telemetry_interval = 1.0
+```
+
+Or enable it in the MkDocs plugin configuration:
+
+```yaml
+plugins:
+  - earth2studio-gallery:
+      collect_telemetry: true
+      telemetry_interval: 1.0
+```
+
+The panel is generated only after an example is executed with collection enabled. Run with
+`--force` once when enabling telemetry for an existing cache.
+
+## What is shown
+
+- Wall-clock runtime and per-code-cell timing bars
+- Process-tree CPU utilization and peak resident memory
+- GPU utilization, memory, and power traces when `nvidia-smi` is available
+- CPU model, system RAM, operating system, and Python version
+- GPU model, total memory, driver version, and driver-supported CUDA version
+
+Sampling is deliberately lightweight and configurable. The minimum interval is 0.25 seconds;
+one second is a useful default for longer GPU examples. GPU metrics are device-level, which
+means other workloads on a shared GPU can influence them. Hostnames and user names are never
+collected.
+
+## Material theme integration
+
+The dashboard inherits MkDocs Material's semantic CSS variables rather than defining its own
+palette. Its accent, surfaces, text, borders, code typography, and elevation follow the
+configured Material color scheme automatically, including light and dark palette toggles.
+Setting `theme.palette.accent` or defining a custom Material color scheme is enough to restyle
+the dashboard with the rest of the documentation site.
