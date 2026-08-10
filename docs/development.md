@@ -16,20 +16,27 @@ Build the self-hosting gallery and documentation locally:
 
 ```console
 uv run e2s-gallery --examples-dir docs/examples build
-uv run mkdocs build --strict
-uv run mkdocs serve
+uv run zensical build
+uv run zensical serve
 ```
 
 The first command executes example environments and retains outputs in `.e2sgallery/`.
-The MkDocs plugin is configured with `execute: never`, so the second command consumes
-those retained artifacts without unexpectedly starting new workloads.
+Zensical is the default site backend. It consumes the Markdown and assets written by the
+standalone gallery command without unexpectedly starting new workloads.
+
+Verify the retained MkDocs backend when changing rendering or CSS:
+
+```console
+uv run e2s-gallery --examples-dir docs/examples render
+uv run mkdocs build --strict --site-dir site-mkdocs
+```
 
 ## Automation
 
 The repository has three GitHub Actions workflows:
 
-- `ci.yml` runs formatting, linting, typing, a strict documentation build, distribution
-  building, and tests on Python 3.11 and 3.13.
+- `ci.yml` runs formatting, linting, typing, strict Zensical and MkDocs documentation
+  builds, distribution building, and tests on Python 3.11 and 3.13.
 - `docs.yml` builds the complete site and publishes it with GitHub Pages Actions.
 - `publish.yml` builds and validates the wheel and source distribution when a numeric version
   tag such as `0.1.0` is pushed, then publishes through PyPI Trusted Publishing.

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "earth2studio-gallery"
 version = "0.1.0"
-description = "Fast, UV-native executable example galleries for MkDocs Material"
+description = "Fast, UV-native executable example galleries for Zensical and MkDocs Material"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
@@ -15,6 +15,7 @@ dependencies = [
   "mkdocs-material>=9.7.7,<10",
   "pillow>=11.0",
   "psutil>=7.0",
+  "zensical>=0.0.53,<0.1",
 ]
 
 [project.urls]

@@ -9,7 +9,8 @@ uv init
 uv add --dev "earth2studio-gallery @ git+https://github.com/NickGeneva/earth2studio-gallery.git"
 ```
 
-Create `mkdocs.yml`:
+Create `mkdocs.yml`. Zensical reads this format directly, which lets the same project retain
+MkDocs compatibility:
 
 ```yaml
 site_name: My example gallery
@@ -21,6 +22,8 @@ plugins:
       examples_dir: examples
       output_dir: gallery
       execute: never
+extra_css:
+  - assets/stylesheets/earth2studio-gallery.css
 markdown_extensions:
   - attr_list
   - md_in_html
@@ -29,11 +32,30 @@ markdown_extensions:
 ```
 
 Keeping `execute: never` makes the expensive execution phase explicit. Execute examples on
-the GPU worker, then recreate the complete gallery without execution before MkDocs runs:
+the GPU worker, then recreate the complete gallery without execution before Zensical runs:
 
 ```console
 uv run e2s-gallery build
 uv run e2s-gallery render
+uv run zensical serve
+```
+
+Zensical is the default backend. Its current public release does not execute third-party
+MkDocs plugin hooks, so the explicit `e2s-gallery build` or `render` step and `extra_css`
+entry are required. The plugin block remains in the shared configuration for users who
+invoke MkDocs instead.
+
+Build a production site with:
+
+```console
+uv run e2s-gallery render
+uv run zensical build
+```
+
+For an existing MkDocs pipeline, the compatible fallback remains:
+
+```console
+uv run mkdocs build --strict
 uv run mkdocs serve
 ```
 

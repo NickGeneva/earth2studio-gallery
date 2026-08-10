@@ -4,7 +4,9 @@
 [![Documentation](https://github.com/NickGeneva/earth2studio-gallery/actions/workflows/docs.yml/badge.svg)](https://nickgeneva.github.io/earth2studio-gallery/)
 
 `earth2studio-gallery` turns Jupytext percent-format Python examples into an
-executable MkDocs Material gallery. It is deliberately independent of Sphinx.
+executable Zensical or MkDocs Material gallery. It is deliberately independent of
+Sphinx. Zensical is the default documentation backend; the MkDocs plugin remains
+available for existing projects.
 
 Each example is executed with `uv run --script`, so its
 [PEP 723 inline metadata](https://docs.astral.sh/uv/guides/scripts/) defines a
@@ -20,7 +22,7 @@ models and optional dependencies differ substantially.
 - individual, section, glob, and full-gallery selection
 - cell-level standard output, errors, and generated image collection
 - fast Pillow thumbnail generation and native lazy-loaded Material cards
-- MkDocs plugin plus a standalone CLI for splitting GPU execution from site builds
+- Zensical-first standalone CLI plus a compatible MkDocs plugin
 - no Sphinx, Jupyter, notebook kernel, or docutils dependency
 
 ## Install and try
@@ -32,14 +34,17 @@ uv run e2s-gallery build 01_getting_started
 uv run e2s-gallery build 01_getting_started/01_deterministic_workflow.py
 uv run e2s-gallery build "03_downscaling/*corrdiff*"
 uv run e2s-gallery render
-uv run mkdocs serve
+uv run zensical serve
 ```
 
 The default paths are `examples/`, `docs/`, `docs/gallery/`, and `.e2sgallery/`.
 Selectors can be a section directory, an exact path (with or without `.py`), a
 unique filename stem, or a glob.
 
-## MkDocs configuration
+## Zensical configuration
+
+Zensical can read an existing `mkdocs.yml`, which is currently the recommended migration
+path for Material projects:
 
 ```yaml
 theme:
@@ -53,6 +58,9 @@ plugins:
       execute: stale       # stale | always | never
       jobs: 1              # safe default for a single GPU
 
+extra_css:
+  - assets/stylesheets/earth2studio-gallery.css
+
 markdown_extensions:
   - attr_list
   - md_in_html
@@ -60,10 +68,36 @@ markdown_extensions:
   - pymdownx.superfences
 ```
 
+Zensical does not yet provide a public API for third-party modules. It accepts this shared
+configuration but does not invoke the gallery's MkDocs plugin hook, so run the standalone
+gallery command before the Zensical backend. The explicit `extra_css` entry is also required
+because that hook normally registers the generated gallery stylesheet:
+
+```console
+uv run e2s-gallery build       # GPU worker: execute stale examples and render
+uv run e2s-gallery render      # CPU/docs worker: render retained outputs only
+uv run zensical build
+uv run zensical serve
+```
+
+The generated pages are ordinary Markdown and compatible HTML, so no Zensical-specific
+rendering layer is required. The repository tests the same generated gallery with both
+Zensical and MkDocs.
+
+## MkDocs compatibility
+
+Existing MkDocs projects can continue to use the plugin configuration above. MkDocs invokes
+the gallery automatically during `mkdocs build` or `mkdocs serve`:
+
+```console
+uv run mkdocs build --strict
+uv run mkdocs serve
+```
+
 `execute: stale` reuses a successful run when the script and its runner settings
 have not changed. For CI, a useful split is to execute selected examples on GPU
-workers, retain `.e2sgallery/`, and run MkDocs with `execute: never` on a CPU
-documentation worker.
+workers, retain `.e2sgallery/`, and run `e2s-gallery render` followed by Zensical on a
+CPU documentation worker.
 
 `e2s-gallery render` reconstructs the entire generated gallery from `.e2sgallery` without
 executing examples. Retained cards are marked `Cached`, `Stale`, or `Missing` by comparing the
@@ -107,7 +141,8 @@ Root defaults can live in `gallery.toml` under `[gallery]` and
 The parser accepts the current Earth2Studio example style: Jupytext `# %%`
 cells, an opening reStructuredText-style docstring, narrative comment cells,
 Python code cells, common Python roles, and `literalinclude`. Generated pages are
-plain Markdown plus Material-compatible HTML cards, so MkDocs owns the final HTML.
+plain Markdown plus Material-compatible HTML cards, so Zensical or MkDocs owns the final
+HTML.
 
 The repository contains a self-hosting documentation project under `docs/`. Its small
 numbered examples install the package from this Git repository, and the documentation

@@ -83,7 +83,9 @@ def render_example(
         output.append(_output_image(example, path))
     source_asset = asset_dir / example.source.name
     _copy_if_changed(example.source, source_asset)
-    asset_prefix = Path("../" * len(relative.parent.parts)) / "_assets" / example.slug
+    # Raw HTML links are not rewritten by MkDocs from the Markdown source path
+    # to its directory-style page URL, which adds one more path component.
+    asset_prefix = Path("../" * (len(relative.parent.parts) + 1)) / "_assets" / example.slug
     source_link = (asset_prefix / source_asset.name).as_posix()
     downloads = [
         f'<a class="e2sg-download" href="{source_link}" download>Download Python source</a>'
@@ -151,7 +153,12 @@ def render_indexes(
             else:
                 media = (
                     '<div class="e2sg-card-placeholder" aria-hidden="true">'
-                    '<span class="e2sg-card-placeholder-icon">PY</span></div>'
+                    '<span class="e2sg-card-placeholder-icon">'
+                    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+                    'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+                    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>'
+                    '<path d="M14 2v6h6M10 13l-2 2 2 2M14 13l2 2-2 2"/>'
+                    "</svg></span></div>"
                 )
             link = example.relative.with_suffix("").as_posix() + "/"
             meta = ""
@@ -293,9 +300,11 @@ _CSS = """.md-grid { max-width: 88rem; }
   border: 1px solid var(--md-default-fg-color--lightest);
   border-radius: .65rem;
   box-shadow: 0 .15rem .5rem rgb(0 0 0 / 8%);
-  text-decoration: none;
+  text-decoration: none !important;
   transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
 }
+
+.md-typeset a.e2sg-gallery-card { text-decoration: none !important; }
 
 .e2sg-gallery-card:hover {
   border-color: var(--md-accent-fg-color);
@@ -333,8 +342,11 @@ _CSS = """.md-grid { max-width: 88rem; }
   color: var(--md-primary-bg-color);
   background: var(--md-accent-fg-color);
   border-radius: .75rem;
-  font-weight: 700;
-  letter-spacing: .08em;
+}
+
+.e2sg-card-placeholder-icon svg {
+  width: 1.65rem;
+  height: 1.65rem;
 }
 
 .e2sg-card-body {
@@ -400,8 +412,10 @@ _CSS = """.md-grid { max-width: 88rem; }
   border-radius: .3rem;
   font-size: .7rem;
   font-weight: 700;
-  text-decoration: none;
+  text-decoration: none !important;
 }
+
+.md-typeset a.e2sg-download { text-decoration: none !important; }
 
 .e2sg-download:hover { filter: brightness(1.08); }
 

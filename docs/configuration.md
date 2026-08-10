@@ -48,7 +48,7 @@ and sidecar configuration is intended for infrastructure details such as GPU ass
 cache locations, and timeouts.
 
 Original captured files remain unchanged in `.e2sgallery/`. Optimization only affects
-the assets copied into the MkDocs site. SVG files and animated GIFs are preserved in
+the assets copied into the Zensical or MkDocs site. SVG files and animated GIFs are preserved in
 their original formats.
 
 ## Runtime telemetry

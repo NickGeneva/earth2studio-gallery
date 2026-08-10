@@ -43,3 +43,36 @@ def test_literalinclude_is_resolved_without_sphinx(tmp_path: Path) -> None:
         tmp_path / "example.py",
     )
     assert rendered == "```python\nanswer = 42\n```"
+
+
+def test_metadata_uses_only_first_narrative_paragraph(tmp_path: Path) -> None:
+    source = tmp_path / "example.py"
+    source.write_text(
+        '''# %%
+"""
+Checkpointing a Forecast
+========================
+
+Basic inference workflow checkpointing.
+
+This longer explanation belongs on the example page, not its gallery card.
+"""
+''',
+        encoding="utf-8",
+    )
+
+    assert example_metadata(source) == (
+        "Checkpointing a Forecast",
+        "Basic inference workflow checkpointing.",
+    )
+
+
+def test_rst_external_link_is_converted_without_sphinx(tmp_path: Path) -> None:
+    rendered = markdown(
+        "Open an `Earth2Studio issue <https://github.com/NVIDIA/earth2studio/issues>`_.",
+        tmp_path / "example.py",
+    )
+
+    assert rendered == (
+        "Open an [Earth2Studio issue](https://github.com/NVIDIA/earth2studio/issues)."
+    )

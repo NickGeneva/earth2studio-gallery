@@ -1,8 +1,9 @@
 site_name: Earth2Studio Gallery
-site_description: UV-native executable example galleries for MkDocs Material
+site_description: UV-native executable example galleries for Zensical and MkDocs Material
 site_url: https://nickgeneva.github.io/earth2studio-gallery/
 repo_url: https://github.com/NickGeneva/earth2studio-gallery
 repo_name: NickGeneva/earth2studio-gallery
+strict: true
 
 theme:
   name: material
@@ -38,6 +39,11 @@ plugins:
       execute: never
       jobs: 1
       collect_telemetry: true
+
+# Zensical does not execute third-party MkDocs plugin hooks yet, so declare the
+# generated gallery stylesheet explicitly. The MkDocs plugin de-duplicates it.
+extra_css:
+  - assets/stylesheets/earth2studio-gallery.css
 
 markdown_extensions:
   - admonition

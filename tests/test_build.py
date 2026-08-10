@@ -54,9 +54,12 @@ Image.new("RGB", (20, 10), "red").save("result.png")
     assert result.telemetry["system"]
     assert any(event.get("duration") is not None for event in result.events)
     page = tmp_path / "docs" / "gallery" / "basics" / "plot.md"
-    assert "cell output" in page.read_text(encoding="utf-8")
-    assert "Download Jupyter notebook" in page.read_text(encoding="utf-8")
-    assert "Runtime telemetry" in page.read_text(encoding="utf-8")
+    page_text = page.read_text(encoding="utf-8")
+    assert "cell output" in page_text
+    assert "Download Jupyter notebook" in page_text
+    assert 'href="../../_assets/basics-plot/plot.py"' in page_text
+    assert 'href="../../_assets/basics-plot/plot.ipynb"' in page_text
+    assert "Runtime telemetry" in page_text
     assert (tmp_path / "docs" / "gallery" / "_assets" / "basics-plot" / "thumbnail.webp").exists()
     second = GalleryBuilder(config).build()
     assert next(item for item in second.results.values() if item).cached
@@ -102,6 +105,8 @@ Image.new("RGB", (20, 10), "red").save("result.png")
     rebuilt_gallery = gallery_path.read_text(encoding="utf-8")
     assert ">Stale</span>" in rebuilt_gallery
     assert ">Missing</span>" in rebuilt_gallery
+    assert 'class="e2sg-card-placeholder-icon"><svg' in rebuilt_gallery
+    assert ">PY</span>" not in rebuilt_gallery
 
 
 def test_self_hosted_git_dependency_uses_current_checkout(tmp_path: Path) -> None:

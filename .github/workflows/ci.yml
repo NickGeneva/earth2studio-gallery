@@ -34,8 +34,14 @@ jobs:
       - name: Run pre-commit checks
         run: uv run pre-commit run --all-files --show-diff-on-failure
 
-      - name: Build documentation
-        run: uv run mkdocs build --strict
+      - name: Render retained gallery
+        run: uv run e2s-gallery --examples-dir docs/examples render
+
+      - name: Build documentation with Zensical
+        run: uv run zensical build
+
+      - name: Verify MkDocs compatibility
+        run: uv run mkdocs build --strict --site-dir site-mkdocs
 
       - name: Build distributions
         run: uv build

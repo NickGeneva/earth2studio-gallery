@@ -7,6 +7,7 @@ from pathlib import Path
 
 CELL = re.compile(r"^#\s*%%.*$", re.MULTILINE)
 ROLE = re.compile(r":(?:py:)?(?:class|func|meth|mod|attr|data):`~?([^`]+)`")
+RST_LINK = re.compile(r"`([^`<>]+?)\s*<([^<>]+)>`_")
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,11 +46,17 @@ def cells(path: Path) -> list[Cell]:
 def example_metadata(path: Path) -> tuple[str, str]:
     for cell in cells(path):
         if cell.kind == "markdown":
-            lines = [line.strip() for line in cell.source.splitlines() if line.strip()]
-            title = lines[0] if lines else path.stem.replace("_", " ").title()
-            lines = lines[2:] if len(lines) > 1 and set(lines[1]) <= {"=", "-", "~"} else lines[1:]
-            paragraphs = " ".join(lines).split("\n\n")
-            summary = paragraphs[0].strip() if paragraphs else ""
+            lines = cell.source.strip().splitlines()
+            title = lines[0].strip() if lines else path.stem.replace("_", " ").title()
+            start = 2 if len(lines) > 1 and set(lines[1].strip()) <= {"=", "-", "~"} else 1
+            summary_lines: list[str] = []
+            for line in lines[start:]:
+                if not line.strip():
+                    if summary_lines:
+                        break
+                    continue
+                summary_lines.append(line.strip())
+            summary = " ".join(summary_lines)
             return title.lstrip("# "), summary
     return path.stem.replace("_", " ").title(), ""
 
@@ -75,6 +82,7 @@ def markdown(text: str, source: Path) -> str:
                 index += 1
             output.append(_literalinclude(source, include, options))
             continue
+        line = RST_LINK.sub(lambda match: f"[{match.group(1)}]({match.group(2)})", line)
         output.append(ROLE.sub(lambda match: f"`{match.group(1)}`", line))
         index += 1
     return "\n".join(output).strip()

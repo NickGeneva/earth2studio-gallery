@@ -1,10 +1,10 @@
 # Earth2Studio Gallery
 
-Build fast, executable example galleries for MkDocs Material without Sphinx.
+Build fast, executable example galleries for Zensical and MkDocs Material without Sphinx.
 
 Earth2Studio Gallery reads Jupytext percent-format Python scripts, executes each script
 inside its own UV environment, captures generated images and console output, and writes
-ordinary Markdown pages for MkDocs.
+ordinary Markdown pages for Zensical or MkDocs.
 
 <div class="grid cards" markdown>
 
@@ -18,10 +18,10 @@ ordinary Markdown pages for MkDocs.
   Successful executions are content-addressed and reused until source or runner settings
   change.
 
-- :material-image-multiple: **Material-native output**
+- :material-image-multiple: **Zensical-native output**
 
   The generated gallery uses plain Markdown, lazy-loaded image cards, and the current
-  MkDocs Material theme.
+  Zensical theme, while retaining MkDocs Material compatibility.
 
 - :material-language-python: **No Sphinx dependency**
 
@@ -36,4 +36,4 @@ ordinary Markdown pages for MkDocs.
 
 This site is self-hosting: the examples under `docs/examples/` install
 `earth2studio-gallery` directly from its Git repository using PEP 723 metadata. The
-GitHub Pages workflow executes those examples before MkDocs builds the site.
+GitHub Pages workflow executes those examples before Zensical builds the site.
