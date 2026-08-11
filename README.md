@@ -16,6 +16,7 @@ models and optional dependencies differ substantially.
 ## Highlights
 
 - Sphinx-Gallery-style `# %%` scripts and narrative docstrings/comments
+- Sphinx-style Python API roles linked through mkdocstrings/autorefs
 - per-example UV environments, Python versions, environment variables, and timeouts
 - content-addressed successful-run cache; unchanged GPU examples do not rerun
 - zero-execution full-gallery rendering from retained results

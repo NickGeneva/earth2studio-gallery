@@ -28,7 +28,30 @@ print("hello")
     assert example_metadata(source) == ("Useful Example", "Short explanation.")
     rendered = markdown(parsed[1].source, source)
     assert "## Run it" in rendered
-    assert "`package.Thing`" in rendered
+    assert "[`package.Thing`][package.Thing]" in rendered
+
+
+def test_python_roles_become_api_cross_references(tmp_path: Path) -> None:
+    rendered = markdown(
+        " ".join(
+            (
+                ":py:class:`package.module.Thing`",
+                ":func:`~package.module.create`",
+                ":py:meth:`custom label <package.module.Thing.run>`",
+                ":exc:`package.errors.Failure`",
+            )
+        ),
+        tmp_path / "example.py",
+    )
+
+    assert rendered == " ".join(
+        (
+            "[`package.module.Thing`][package.module.Thing]",
+            "[`create`][package.module.create]",
+            "[`custom label`][package.module.Thing.run]",
+            "[`package.errors.Failure`][package.errors.Failure]",
+        )
+    )
 
 
 def test_literalinclude_is_resolved_without_sphinx(tmp_path: Path) -> None:

@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 CELL = re.compile(r"^#\s*%%.*$", re.MULTILINE)
-ROLE = re.compile(r":(?:py:)?(?:class|func|meth|mod|attr|data):`~?([^`]+)`")
+PYTHON_ROLE = re.compile(
+    r":(?:py:)?(?:attr|class|const|data|exc|func|meth|mod|obj):`(?P<short>~)?(?P<body>[^`]+)`"
+)
 RST_LINK = re.compile(r"`([^`<>]+?)\s*<([^<>]+)>`_")
 
 
@@ -83,7 +85,7 @@ def markdown(text: str, source: Path) -> str:
             output.append(_literalinclude(source, include, options))
             continue
         line = RST_LINK.sub(lambda match: f"[{match.group(1)}]({match.group(2)})", line)
-        output.append(ROLE.sub(lambda match: f"`{match.group(1)}`", line))
+        output.append(PYTHON_ROLE.sub(_python_reference, line))
         index += 1
     return "\n".join(output).strip()
 
@@ -115,6 +117,18 @@ def _narrative(source: str) -> str | None:
         rendered = "\n".join(visible).strip()
         return rendered or None
     return None
+
+
+def _python_reference(match: re.Match[str]) -> str:
+    """Convert a Sphinx Python role to an mkdocstrings/autorefs link."""
+    body = match.group("body").strip()
+    explicit = re.fullmatch(r"(.+?)\s*<\s*([^<>]+?)\s*>", body)
+    if explicit:
+        label, target = explicit.groups()
+    else:
+        target = body
+        label = target.rsplit(".", 1)[-1] if match.group("short") else target
+    return f"[`{label.strip()}`][{target.strip()}]"
 
 
 def _is_license_preamble(text: str) -> bool:
