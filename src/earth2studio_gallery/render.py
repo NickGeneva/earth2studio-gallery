@@ -465,7 +465,7 @@ _CSS = """[data-md-color-scheme="default"] .highlight {
   min-height: 2.2rem;
   padding: .45rem .85rem;
   color: var(--md-primary-bg-color) !important;
-  background: var(--md-accent-fg-color);
+  background: var(--e2sg-download-button-color, var(--md-accent-fg-color));
   border-radius: .3rem;
   font-size: .7rem;
   font-weight: 700;
