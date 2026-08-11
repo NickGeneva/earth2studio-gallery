@@ -80,3 +80,17 @@ stylesheet when a site needs a different density:
 
 The displayed card size is independent of the generated thumbnail asset. Thumbnails remain
 720×480 WebP images so they stay sharp on high-density displays while loading efficiently.
+
+## Syntax highlighting
+
+Generated source cells use Pygments through `pymdownx.highlight`. The gallery stylesheet
+provides higher-contrast light and dark palettes using Zensical and Material's supported
+`--md-code-*` variables. Projects can override individual token colors in a stylesheet loaded
+after `earth2studio-gallery.css`, for example:
+
+```css
+[data-md-color-scheme="slate"] .highlight {
+  --md-code-hl-string-color: #a5d6ff;
+  --md-code-hl-keyword-color: #ff7b72;
+}
+```

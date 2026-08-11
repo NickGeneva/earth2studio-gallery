@@ -61,6 +61,12 @@ Image.new("RGB", (20, 10), "red").save("result.png")
     assert 'href="../../_assets/basics-plot/plot.ipynb"' in page_text
     assert "Runtime telemetry" in page_text
     assert (tmp_path / "docs" / "gallery" / "_assets" / "basics-plot" / "thumbnail.webp").exists()
+    gallery_css = (
+        tmp_path / "docs" / "assets" / "stylesheets" / "earth2studio-gallery.css"
+    ).read_text(encoding="utf-8")
+    assert '[data-md-color-scheme="default"] .highlight' in gallery_css
+    assert '[data-md-color-scheme="slate"] .highlight' in gallery_css
+    assert "--md-code-hl-keyword-color" in gallery_css
     second = GalleryBuilder(config).build()
     assert next(item for item in second.results.values() if item).cached
     gallery_path = tmp_path / "docs" / "gallery" / "index.md"
