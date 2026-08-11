@@ -49,6 +49,7 @@ testpaths = ["tests"]
 examples_dir = "docs/examples"
 collect_telemetry = true
 telemetry_interval = 1.0
+download_button_color = "#76b900"
 
 [tool.black]
 line-length = 100

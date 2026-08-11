@@ -57,6 +57,7 @@ plugins:
       output_dir: gallery
       execute: stale       # stale | always | never
       jobs: 1              # safe default for a single GPU
+      download_button_color: "#76b900"
 
 extra_css:
   - assets/stylesheets/earth2studio-gallery.css

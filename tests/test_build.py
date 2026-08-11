@@ -22,6 +22,7 @@ image_max_height = 10
 image_min_bytes = 0
 collect_telemetry = true
 telemetry_interval = 0.25
+download_button_color = "#123456"
 """,
         encoding="utf-8",
     )
@@ -67,6 +68,8 @@ Image.new("RGB", (20, 10), "red").save("result.png")
     assert '[data-md-color-scheme="default"] .highlight' in gallery_css
     assert '[data-md-color-scheme="slate"] .highlight' in gallery_css
     assert "--md-code-hl-keyword-color" in gallery_css
+    assert "--e2sg-download-button-color: #123456" in gallery_css
+    assert "background: var(--e2sg-download-button-color" in gallery_css
     second = GalleryBuilder(config).build()
     assert next(item for item in second.results.values() if item).cached
     gallery_path = tmp_path / "docs" / "gallery" / "index.md"

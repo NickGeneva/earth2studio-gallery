@@ -32,6 +32,7 @@ class GalleryPlugin(BasePlugin):
         ("image_quality", config_options.Type(int, default=85)),
         ("image_min_bytes", config_options.Type(int, default=131072)),
         ("generate_notebooks", config_options.Type(bool, default=True)),
+        ("download_button_color", config_options.Type(str, default="")),
         ("collect_telemetry", config_options.Type(bool, default=False)),
         ("telemetry_interval", config_options.Type(float, default=1.0)),
     )
@@ -39,25 +40,28 @@ class GalleryPlugin(BasePlugin):
     def on_config(self, config, **kwargs):
         config_file = Path(config.config_file_path or ".").resolve()
         root = config_file.parent if config_file.is_file() else config_file
+        overrides = {
+            "examples_dir": self.config["examples_dir"],
+            "output_dir": Path(config.docs_dir) / self.config["output_dir"],
+            "cache_dir": self.config["cache_dir"],
+            "execute": self.config["execute"],
+            "jobs": self.config["jobs"],
+            "fail_fast": self.config["fail_fast"],
+            "optimize_images": self.config["optimize_images"],
+            "image_max_width": self.config["image_max_width"],
+            "image_max_height": self.config["image_max_height"],
+            "image_quality": self.config["image_quality"],
+            "image_min_bytes": self.config["image_min_bytes"],
+            "generate_notebooks": self.config["generate_notebooks"],
+            "collect_telemetry": self.config["collect_telemetry"],
+            "telemetry_interval": self.config["telemetry_interval"],
+        }
+        if self.config["download_button_color"]:
+            overrides["download_button_color"] = self.config["download_button_color"]
         gallery = GalleryConfig.load(
             root,
             docs_dir=config.docs_dir,
-            overrides={
-                "examples_dir": self.config["examples_dir"],
-                "output_dir": Path(config.docs_dir) / self.config["output_dir"],
-                "cache_dir": self.config["cache_dir"],
-                "execute": self.config["execute"],
-                "jobs": self.config["jobs"],
-                "fail_fast": self.config["fail_fast"],
-                "optimize_images": self.config["optimize_images"],
-                "image_max_width": self.config["image_max_width"],
-                "image_max_height": self.config["image_max_height"],
-                "image_quality": self.config["image_quality"],
-                "image_min_bytes": self.config["image_min_bytes"],
-                "generate_notebooks": self.config["generate_notebooks"],
-                "collect_telemetry": self.config["collect_telemetry"],
-                "telemetry_interval": self.config["telemetry_interval"],
-            },
+            overrides=overrides,
         )
         log.info("Generating Earth2Studio gallery from %s", gallery.examples_dir)
         report = GalleryBuilder(gallery, progress=_log_progress).build()

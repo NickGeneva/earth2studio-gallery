@@ -17,6 +17,7 @@ image_max_height = 1600
 image_quality = 85
 image_min_bytes = 131072
 generate_notebooks = true
+download_button_color = "#76b900"
 collect_telemetry = false
 telemetry_interval = 1.0
 
@@ -40,6 +41,7 @@ uv_args = ["--no-progress"]
 | `image_quality` | WebP quality from 1 to 100 |
 | `image_min_bytes` | Minimum source size to optimize, unless dimensions exceed the limits |
 | `generate_notebooks` | Generate downloadable `.ipynb` files with captured outputs |
+| `download_button_color` | CSS color for download buttons; defaults to the theme accent |
 | `collect_telemetry` | Add an execution profile with resource and hardware telemetry |
 | `telemetry_interval` | Resource sampling interval in seconds (minimum `0.25`) |
 
@@ -50,6 +52,10 @@ cache locations, and timeouts.
 Original captured files remain unchanged in `.e2sgallery/`. Optimization only affects
 the assets copied into the Zensical or MkDocs site. SVG files and animated GIFs are preserved in
 their original formats.
+
+The download-button setting accepts a single CSS color such as `#76b900`, `navy`, or
+`rgb(118 185 0)`. For stylesheet-level control, override
+`--e2sg-download-button-color` after loading `earth2studio-gallery.css`.
 
 ## Runtime telemetry
 

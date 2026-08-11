@@ -189,7 +189,17 @@ def render_indexes(
 def write_css(config: GalleryConfig) -> Path:
     target = config.docs_dir / "assets" / "stylesheets" / "earth2studio-gallery.css"
     target.parent.mkdir(parents=True, exist_ok=True)
-    _write_text_if_changed(target, _CSS)
+    css = _CSS
+    if config.download_button_color:
+        if any(character in config.download_button_color for character in ";{}"):
+            raise ValueError("download_button_color must be a single CSS color value")
+        css = (
+            ":root {\n"
+            f"  --e2sg-download-button-color: {config.download_button_color};\n"
+            "}\n\n"
+            f"{css}"
+        )
+    _write_text_if_changed(target, css)
     return target
 
 
@@ -387,7 +397,7 @@ _CSS = """[data-md-color-scheme="default"] .highlight {
   height: 3.5rem;
   place-items: center;
   color: var(--md-primary-bg-color);
-  background: var(--md-accent-fg-color);
+  background: var(--e2sg-download-button-color, var(--md-accent-fg-color));
   border-radius: .75rem;
 }
 

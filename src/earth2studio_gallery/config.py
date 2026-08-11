@@ -35,6 +35,7 @@ class GalleryConfig:
     image_quality: int = 85
     image_min_bytes: int = 131072
     generate_notebooks: bool = True
+    download_button_color: str | None = None
     collect_telemetry: bool = False
     telemetry_interval: float = 1.0
     default: ExampleConfig = field(default_factory=ExampleConfig)
@@ -90,6 +91,11 @@ class GalleryConfig:
             image_quality=min(100, max(1, int(data.get("image_quality", 85)))),
             image_min_bytes=max(0, int(data.get("image_min_bytes", 131072))),
             generate_notebooks=bool(data.get("generate_notebooks", True)),
+            download_button_color=(
+                str(data["download_button_color"]).strip()
+                if data.get("download_button_color")
+                else None
+            ),
             collect_telemetry=bool(data.get("collect_telemetry", False)),
             telemetry_interval=max(0.25, float(data.get("telemetry_interval", 1.0))),
             default=default,
