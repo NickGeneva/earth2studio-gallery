@@ -30,7 +30,8 @@ def telemetry_panel(result: RunResult, _source: Path) -> str:
         f"<strong>{html.escape(value)}</strong></div>"
         for label, value in hardware
     )
-    regions_html = "".join(_region_panel(region, gpus) for region in regions)
+    logical_cores = max(_number(system.get("logical_cores")), 1)
+    regions_html = "".join(_region_panel(region, gpus, logical_cores) for region in regions)
     runtime_html = (
         '<div class="e2sg-total-runtime"><span>Total runtime</span>'
         f'<strong>{_duration(summary.get("duration_seconds"))}</strong></div>'
@@ -54,17 +55,18 @@ def telemetry_panel(result: RunResult, _source: Path) -> str:
     )
 
 
-def _region_panel(region: dict[str, Any], gpus: list[dict[str, Any]]) -> str:
+def _region_panel(region: dict[str, Any], gpus: list[dict[str, Any]], logical_cores: float) -> str:
     name = str(region.get("name", "region"))
     samples = _mappings(region.get("samples"))
     metrics = [
         _metric("Duration", _duration(region.get("duration_seconds")), "Tagged cells", "", samples),
         _metric(
-            "CPU",
-            _percent(region.get("average_cpu_percent")),
-            f"Peak {_percent(region.get('peak_cpu_percent'))}",
+            "CPU load",
+            _cpu_load(region.get("average_cpu_percent"), logical_cores),
+            "Average · Peak " f"{_cpu_load(region.get('peak_cpu_percent'), logical_cores)}",
             "cpu_percent",
             samples,
+            ceiling=logical_cores * 100,
         ),
         _metric(
             "Process memory",
@@ -170,6 +172,8 @@ def _sparkline(samples: list[dict[str, Any]], key: str, ceiling: float | None) -
 
 
 def label_for_key(key: str) -> str:
+    if key == "cpu_percent":
+        return "CPU load"
     return key.replace("_", " ")
 
 
@@ -215,6 +219,13 @@ def _duration(value: object) -> str:
 
 def _percent(value: object) -> str:
     return "–" if value is None else f"{_number(value):.0f}%"
+
+
+def _cpu_load(value: object, logical_cores: float) -> str:
+    if value is None:
+        return "–"
+    normalized = _number(value) / max(logical_cores, 1)
+    return f"{min(max(normalized, 0), 100):.0f}%"
 
 
 def _megabytes(value: object) -> str:

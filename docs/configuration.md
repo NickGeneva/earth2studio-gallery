@@ -94,8 +94,9 @@ systems, GPU utilization, memory, power, model, and driver information are colle
 
 The generated page shows KPI cards, compact resource traces, cell timing bars, and the
 execution environment. It never records the hostname or user name. GPU measurements are
-device-level measurements, so unrelated work on a shared GPU can affect them. Process CPU
-usage may exceed 100% when the example uses multiple cores.
+device-level measurements, so unrelated work on a shared GPU can affect them. The CPU load
+shown on a page is the example process tree's average and peak share of the system's total
+logical CPU capacity, normalized to 0–100%.
 
 ## Gallery card sizing
 

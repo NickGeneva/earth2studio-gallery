@@ -30,16 +30,18 @@ The panel is generated only after an example is executed with collection enabled
 ## What is shown
 
 - Total wall-clock execution time
-- Per-phase process-tree CPU utilization and peak resident memory
+- Per-phase average and peak CPU load, plus peak resident memory
 - Per-phase host-wide network traffic
 - Per-phase GPU utilization, memory, and power traces when `nvidia-smi` is available
 - CPU model, system RAM, operating system, and Python version
 - GPU model, total memory, driver version, and driver-supported CUDA version
 
-Sampling is deliberately lightweight and configurable. CPU usage is calculated from cumulative
-CPU time across the UV process tree and observed every 0.1 seconds, so short examples do not
-inherit the meaningless zero returned by a first non-blocking percentage sample. As in `top`,
-100% represents one fully occupied logical core and multi-threaded examples can exceed 100%.
+Sampling is deliberately lightweight and configurable. CPU load is calculated from cumulative
+CPU time across the UV process tree, then normalized by the execution system's total logical CPU
+count. The dashboard therefore reports the example's share of total CPU capacity from 0–100%,
+with both its average and peak shown for each phase. CPU time is observed every 0.1 seconds so
+short examples do not inherit the meaningless zero returned by a first non-blocking percentage
+sample. Raw aggregate process-tree percentages remain in the retained telemetry data.
 
 The configured interval controls the retained resource samples and GPU queries; its minimum is
 0.25 seconds, and one second is a useful default for longer GPU examples. GPU metrics are

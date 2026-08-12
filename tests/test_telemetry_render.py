@@ -114,3 +114,35 @@ def test_untagged_run_has_no_metric_grid() -> None:
     assert 'class="e2sg-metric-grid"' not in panel
     assert "Total runtime" in panel
     assert "1.2 s" in panel
+
+
+def test_cpu_load_is_normalized_by_logical_core_count() -> None:
+    result = RunResult(
+        "fingerprint",
+        2.0,
+        0,
+        False,
+        [],
+        [],
+        telemetry={
+            "summary": {"duration_seconds": 2.0},
+            "system": {"logical_cores": 8},
+            "gpus": [],
+            "regions": [
+                {
+                    "name": "inference",
+                    "duration_seconds": 1.0,
+                    "sample_count": 1,
+                    "average_cpu_percent": 240.0,
+                    "peak_cpu_percent": 400.0,
+                    "samples": [{"cpu_percent": 240.0}],
+                }
+            ],
+        },
+    )
+
+    panel = telemetry_panel(result, Path("example.py"))
+
+    assert ">CPU load</span><strong>30%</strong>" in panel
+    assert ">Average · Peak 50%</span>" in panel
+    assert 'aria-label="CPU load over time"' in panel
