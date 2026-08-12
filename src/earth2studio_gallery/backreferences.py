@@ -166,10 +166,8 @@ def _registry_entry(example: Example, config: GalleryConfig) -> dict[str, str | 
 
 def _cards(page: Path, target: str, examples: list[Example], config: GalleryConfig) -> str:
     output = config.output_dir.relative_to(config.docs_dir)
-    page_relative = page.relative_to(config.docs_dir).with_suffix("")
-    if page_relative.name == "index":
-        page_relative = page_relative.parent
-    prefix = "../" * len(page_relative.parts)
+    page_parent = page.relative_to(config.docs_dir).parent
+    prefix = "../" * len(page_parent.parts)
     cards = []
     for example in examples:
         link = prefix + (output / example.relative.with_suffix("")).as_posix() + "/"

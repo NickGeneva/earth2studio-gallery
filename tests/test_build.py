@@ -156,8 +156,8 @@ Image.new("RGB", (20, 10), "red").save("result.png")
     assert "Examples using <code>package.api.Thing</code>" in api_text
     assert "Examples using <code>package.api.create_thing</code>" in api_text
     assert "<!-- markdownlint-disable MD033 -->" in api_text
-    assert 'href="../../gallery/basics/plot/"' in api_text
-    assert 'src="../../gallery/_assets/basics-plot/thumbnail.webp"' in api_text
+    assert 'href="../gallery/basics/plot/"' in api_text
+    assert 'src="../gallery/_assets/basics-plot/thumbnail.webp"' in api_text
     backreferences = json.loads(
         (config.cache_dir / "backreferences.json").read_text(encoding="utf-8")
     )
