@@ -32,6 +32,8 @@ class GalleryPlugin(BasePlugin):
         ("image_quality", config_options.Type(int, default=85)),
         ("image_min_bytes", config_options.Type(int, default=131072)),
         ("generate_notebooks", config_options.Type(bool, default=True)),
+        ("output_open", config_options.Type(bool, default=False)),
+        ("output_max_height", config_options.Type(int, default=400)),
         ("download_button_color", config_options.Type(str, default="")),
         ("collect_telemetry", config_options.Type(bool, default=False)),
         ("telemetry_interval", config_options.Type(float, default=1.0)),
@@ -53,6 +55,8 @@ class GalleryPlugin(BasePlugin):
             "image_quality": self.config["image_quality"],
             "image_min_bytes": self.config["image_min_bytes"],
             "generate_notebooks": self.config["generate_notebooks"],
+            "output_open": self.config["output_open"],
+            "output_max_height": self.config["output_max_height"],
             "collect_telemetry": self.config["collect_telemetry"],
             "telemetry_interval": self.config["telemetry_interval"],
         }

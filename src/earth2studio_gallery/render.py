@@ -64,14 +64,14 @@ def render_example(
         else:
             output.append(f"```python\n{cell.source.rstrip()}\n```")
             event = events.get(cell.index, {})
-            stdout = str(event.get("stdout", "")).strip()
-            stderr = str(event.get("stderr", "")).strip()
-            if stdout:
-                output.append(f'```text title="Output"\n{stdout}\n```')
-            if stderr:
-                indented_stderr = stderr.replace("\n", "\n    ")
+            console = _event_console(event)
+            if console:
                 output.append(
-                    f'??? warning "Standard error"\n\n    ```text\n    {indented_stderr}\n    ```'
+                    _console_output(
+                        console,
+                        failed=bool(event.get("failed", False)),
+                        open_by_default=config.output_open,
+                    )
                 )
             for artifact in artifact_map.get(cell.index, []):
                 path = (
@@ -117,6 +117,33 @@ def _output_image(example: Example, path: Path) -> str:
     return (
         f"![Output from {html.escape(example.title)}]({path.as_posix()})"
         "{ .e2sg-output-image loading=lazy }"
+    )
+
+
+def _event_console(event: dict[str, object]) -> str:
+    combined = event.get("output")
+    if isinstance(combined, str) and combined.strip():
+        return _clean_console(combined)
+    streams = [str(event.get(name, "")).strip() for name in ("stdout", "stderr")]
+    return _clean_console("\n".join(stream for stream in streams if stream))
+
+
+def _clean_console(value: str) -> str:
+    value = re.sub(r"\x1b\][^\x07]*(?:\x07|\x1b\\)", "", value)
+    value = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", value)
+    return value.replace("\r\n", "\n").replace("\r", "\n").strip()
+
+
+def _console_output(value: str, *, failed: bool, open_by_default: bool) -> str:
+    label = "Error output" if failed else "Console output"
+    modifier = " e2sg-output--error" if failed else ""
+    open_attribute = " open" if open_by_default else ""
+    line_count = value.count("\n") + 1
+    lines = "line" if line_count == 1 else "lines"
+    return (
+        f'<details class="e2sg-output{modifier}"{open_attribute}>'
+        f"<summary><span>{label}</span><small>{line_count} {lines}</small></summary>"
+        f"<pre><code>{html.escape(value, quote=False)}</code></pre></details>"
     )
 
 
@@ -189,16 +216,12 @@ def render_indexes(
 def write_css(config: GalleryConfig) -> Path:
     target = config.docs_dir / "assets" / "stylesheets" / "earth2studio-gallery.css"
     target.parent.mkdir(parents=True, exist_ok=True)
-    css = _CSS
+    variables = [f"  --e2sg-output-max-height: {config.output_max_height}px;"]
     if config.download_button_color:
         if any(character in config.download_button_color for character in ";{}"):
             raise ValueError("download_button_color must be a single CSS color value")
-        css = (
-            ":root {\n"
-            f"  --e2sg-download-button-color: {config.download_button_color};\n"
-            "}\n\n"
-            f"{css}"
-        )
+        variables.append(f"  --e2sg-download-button-color: {config.download_button_color};")
+    css = ":root {\n" + "\n".join(variables) + "\n}\n\n" + _CSS
     _write_text_if_changed(target, css)
     return target
 
@@ -451,6 +474,84 @@ _CSS = """[data-md-color-scheme="default"] .highlight {
   border-radius: .4rem;
 }
 
+.e2sg-output {
+  overflow: hidden;
+  margin: 1rem 0;
+  color: var(--md-code-fg-color);
+  background: var(--md-code-bg-color);
+  border: .05rem solid var(--md-default-fg-color--lightest);
+  border-radius: .35rem;
+  box-shadow: var(--md-shadow-z1);
+}
+
+.e2sg-output--error { border-left: .2rem solid var(--md-code-hl-special-color); }
+
+.e2sg-output summary {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  padding: .55rem .8rem;
+  color: var(--md-default-fg-color--light);
+  background: var(--md-code-bg-color--light);
+  cursor: pointer;
+  font-size: .7rem;
+  font-weight: 700;
+  list-style: none;
+}
+
+.e2sg-output summary::-webkit-details-marker { display: none; }
+
+.e2sg-output summary::after {
+  display: none !important;
+  content: none !important;
+}
+
+.e2sg-output summary::before {
+  content: "";
+  position: static !important;
+  top: auto !important;
+  right: auto !important;
+  left: auto !important;
+  display: block;
+  width: .42rem;
+  height: .42rem;
+  box-sizing: border-box;
+  color: var(--md-typeset-a-color);
+  background: transparent !important;
+  border-right: .09rem solid currentColor;
+  border-bottom: .09rem solid currentColor;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  transform: rotate(-45deg);
+  transform-origin: center;
+  transition: transform 150ms ease;
+}
+
+.e2sg-output[open] summary::before { transform: rotate(45deg); }
+
+.e2sg-output summary small {
+  color: var(--md-default-fg-color--lighter);
+  font-size: .58rem;
+  font-weight: 400;
+}
+
+.e2sg-output pre {
+  max-height: var(--e2sg-output-max-height);
+  margin: 0;
+  overflow: auto;
+}
+
+.e2sg-output pre code {
+  display: block;
+  min-width: max-content;
+  padding: .8rem;
+  background: transparent;
+  font-size: .65rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
 .e2sg-downloads {
   display: flex;
   flex-wrap: wrap;
@@ -597,6 +698,84 @@ _CSS = """[data-md-color-scheme="default"] .highlight {
   padding-bottom: .4rem;
 }
 
+.e2sg-regions { padding-top: 1.35rem; }
+
+.e2sg-regions-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: .55rem;
+}
+
+.e2sg-regions-heading > .e2sg-telemetry-subtitle {
+  margin: 0;
+}
+
+.e2sg-telemetry-region {
+  overflow: hidden;
+  margin: .55rem 0;
+  background: var(--md-code-bg-color);
+  border: .05rem solid var(--md-typeset-table-color);
+  border-radius: .25rem;
+}
+
+.e2sg-telemetry-region summary {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: .65rem;
+  padding: .65rem .75rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.e2sg-telemetry-region summary::-webkit-details-marker { display: none; }
+
+.e2sg-telemetry-region summary::after {
+  display: none !important;
+  content: none !important;
+}
+
+.e2sg-telemetry-region summary::before {
+  content: "";
+  position: static !important;
+  top: auto !important;
+  right: auto !important;
+  left: auto !important;
+  display: block;
+  width: .38rem;
+  height: .38rem;
+  box-sizing: border-box;
+  color: var(--md-typeset-a-color);
+  background: transparent !important;
+  border-right: .08rem solid currentColor;
+  border-bottom: .08rem solid currentColor;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  transform: rotate(-45deg);
+  transform-origin: center;
+  transition: transform 150ms ease;
+}
+
+.e2sg-telemetry-region[open] summary::before { transform: rotate(45deg); }
+
+.e2sg-region-name {
+  color: var(--md-code-fg-color);
+  font-size: .7rem;
+  font-weight: 700;
+}
+
+.e2sg-region-meta {
+  color: var(--md-default-fg-color--lighter);
+  font-size: .55rem;
+  white-space: nowrap;
+}
+
+.e2sg-telemetry-region > .e2sg-metric-grid {
+  padding: .15rem .75rem .75rem;
+}
+
 .e2sg-timing-row {
   display: grid;
   grid-template-columns: minmax(5.5rem, 1fr) minmax(7rem, 3fr) 3.5rem;
@@ -666,6 +845,28 @@ _CSS = """[data-md-color-scheme="default"] .highlight {
   font-weight: 500;
   text-overflow: ellipsis;
 }
+
+.e2sg-total-runtime {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .25rem .5rem;
+  color: var(--md-default-fg-color--light);
+  background: var(--md-code-bg-color);
+  border: .05rem solid var(--md-typeset-table-color);
+  border-radius: 999px;
+  font-size: .62rem;
+  white-space: nowrap;
+}
+
+.e2sg-total-runtime strong {
+  color: var(--md-code-fg-color);
+  font-family: var(--md-code-font-family);
+  font-size: .7rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.e2sg-telemetry > .e2sg-total-runtime { margin-bottom: 1.15rem; }
 
 @media screen and (max-width: 38rem) {
   .e2sg-gallery-grid {

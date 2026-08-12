@@ -4,65 +4,17 @@ import html
 from pathlib import Path
 from typing import Any
 
-from .parser import cells, markdown
 from .runner import RunResult
 
 
-def telemetry_panel(result: RunResult, source: Path) -> str:
+def telemetry_panel(result: RunResult, _source: Path) -> str:
     telemetry = result.telemetry
     summary = _mapping(telemetry.get("summary"))
     system = _mapping(telemetry.get("system"))
-    samples = _mappings(telemetry.get("samples"))
     gpus = _mappings(telemetry.get("gpus"))
+    regions = _mappings(telemetry.get("regions"))
     if not summary:
         return ""
-
-    metrics = [
-        _metric("Runtime", _duration(summary.get("duration_seconds")), "Wall-clock", "", samples),
-        _metric(
-            "CPU",
-            _percent(summary.get("average_cpu_percent")),
-            f"Peak {_percent(summary.get('peak_cpu_percent'))}",
-            "cpu_percent",
-            samples,
-        ),
-        _metric(
-            "Process memory",
-            _bytes(summary.get("peak_rss_bytes")),
-            "Peak resident set",
-            "rss_bytes",
-            samples,
-        ),
-    ]
-    if gpus:
-        total_gpu_memory = sum(_number(item.get("memory_total_mb")) for item in gpus)
-        metrics.extend(
-            [
-                _metric(
-                    "GPU utilization",
-                    _percent(summary.get("average_gpu_percent")),
-                    f"Peak {_percent(summary.get('peak_gpu_percent'))}",
-                    "gpu_percent",
-                    samples,
-                    ceiling=100,
-                ),
-                _metric(
-                    "GPU memory",
-                    _megabytes(summary.get("peak_gpu_memory_mb")),
-                    f"of {_megabytes(total_gpu_memory)}",
-                    "gpu_memory_mb",
-                    samples,
-                    ceiling=total_gpu_memory,
-                ),
-                _metric(
-                    "GPU power",
-                    _watts(summary.get("peak_gpu_power_watts")),
-                    "Peak draw",
-                    "gpu_power_watts",
-                    samples,
-                ),
-            ]
-        )
 
     hardware = [
         ("CPU", str(system.get("cpu", "Unknown"))),
@@ -73,23 +25,108 @@ def telemetry_panel(result: RunResult, source: Path) -> str:
         ("GPU driver / CUDA", _gpu_software(gpus)),
     ]
 
-    metric_html = "".join(metrics)
     hardware_html = "".join(
         f'<div class="e2sg-hardware-item"><span>{html.escape(label)}</span>'
         f"<strong>{html.escape(value)}</strong></div>"
         for label, value in hardware
     )
-    timing_html = _cell_timings(result, source)
+    regions_html = "".join(_region_panel(region, gpus) for region in regions)
+    runtime_html = (
+        '<div class="e2sg-total-runtime"><span>Total runtime</span>'
+        f'<strong>{_duration(summary.get("duration_seconds"))}</strong></div>'
+    )
+    if regions_html:
+        regions_html = (
+            '<div class="e2sg-regions"><div class="e2sg-regions-heading">'
+            '<h3 class="e2sg-telemetry-subtitle">Profiled phases</h3>'
+            f"{runtime_html}</div>{regions_html}</div>"
+        )
+        runtime_html = ""
     return (
         '<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title">'
         '<div class="e2sg-telemetry-heading"><div>'
         '<span class="e2sg-eyebrow">Execution profile</span>'
-        '<h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div>'
-        f'<span class="e2sg-sample-count">{len(samples)} samples</span></div>'
-        f'<div class="e2sg-metric-grid">{metric_html}</div>'
-        f"{timing_html}"
+        '<h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div>'
+        f"{runtime_html}"
+        f"{regions_html}"
         '<h3 class="e2sg-telemetry-subtitle">Execution environment</h3>'
         f'<div class="e2sg-hardware-grid">{hardware_html}</div></section>'
+    )
+
+
+def _region_panel(region: dict[str, Any], gpus: list[dict[str, Any]]) -> str:
+    name = str(region.get("name", "region"))
+    samples = _mappings(region.get("samples"))
+    metrics = [
+        _metric("Duration", _duration(region.get("duration_seconds")), "Tagged cells", "", samples),
+        _metric(
+            "CPU",
+            _percent(region.get("average_cpu_percent")),
+            f"Peak {_percent(region.get('peak_cpu_percent'))}",
+            "cpu_percent",
+            samples,
+        ),
+        _metric(
+            "Process memory",
+            _bytes(region.get("peak_rss_bytes")),
+            "Peak resident set",
+            "rss_bytes",
+            samples,
+        ),
+        _metric(
+            "Network received",
+            _traffic_bytes(region.get("network_received_bytes")),
+            "Host-wide estimate",
+            "network_received_bytes",
+            samples,
+        ),
+        _metric(
+            "Network sent",
+            _traffic_bytes(region.get("network_sent_bytes")),
+            "Host-wide estimate",
+            "network_sent_bytes",
+            samples,
+        ),
+    ]
+    if gpus:
+        total_gpu_memory = sum(_number(item.get("memory_total_mb")) for item in gpus)
+        metrics.extend(
+            [
+                _metric(
+                    "GPU utilization",
+                    _percent(region.get("average_gpu_percent")),
+                    f"Peak {_percent(region.get('peak_gpu_percent'))}",
+                    "gpu_percent",
+                    samples,
+                    ceiling=100,
+                ),
+                _metric(
+                    "GPU memory",
+                    _megabytes(region.get("peak_gpu_memory_mb")),
+                    f"of {_megabytes(total_gpu_memory)}",
+                    "gpu_memory_mb",
+                    samples,
+                    ceiling=total_gpu_memory,
+                ),
+                _metric(
+                    "GPU power",
+                    _watts(region.get("peak_gpu_power_watts")),
+                    "Peak draw",
+                    "gpu_power_watts",
+                    samples,
+                ),
+            ]
+        )
+    sample_count = int(_number(region.get("sample_count")))
+    sample_label = "sample" if sample_count == 1 else "samples"
+    open_attribute = " open" if name.lower() == "inference" else ""
+    return (
+        f'<details class="e2sg-telemetry-region"{open_attribute}>'
+        '<summary><span class="e2sg-region-name">'
+        f"{html.escape(name.replace('_', ' ').title())}</span>"
+        '<span class="e2sg-region-meta">'
+        f"{_duration(region.get('duration_seconds'))} · {sample_count} {sample_label}</span>"
+        f'</summary><div class="e2sg-metric-grid">{"".join(metrics)}</div></details>'
     )
 
 
@@ -134,42 +171,6 @@ def _sparkline(samples: list[dict[str, Any]], key: str, ceiling: float | None) -
 
 def label_for_key(key: str) -> str:
     return key.replace("_", " ")
-
-
-def _cell_timings(result: RunResult, source: Path) -> str:
-    event_durations: dict[int, float] = {}
-    for event in result.events:
-        cell_number = event.get("cell")
-        if isinstance(cell_number, (int, str)) and event.get("duration") is not None:
-            event_durations[int(cell_number)] = _number(event.get("duration"))
-    rows: list[tuple[str, float]] = []
-    section = "Setup"
-    for cell in cells(source):
-        if cell.kind == "markdown":
-            headings = [
-                line.lstrip("# ").strip()
-                for line in markdown(cell.source, source).splitlines()
-                if line.startswith("#")
-            ]
-            if headings:
-                section = headings[-1]
-        elif cell.index in event_durations:
-            rows.append((section, event_durations[cell.index]))
-    if not rows:
-        return ""
-    maximum = max(duration for _, duration in rows) or 1
-    content = "".join(
-        '<div class="e2sg-timing-row">'
-        f'<span class="e2sg-timing-label">{html.escape(label)}</span>'
-        '<span class="e2sg-timing-track"><span class="e2sg-timing-bar" '
-        f'style="width:{max(1.5, duration / maximum * 100):.2f}%"></span></span>'
-        f"<strong>{_duration(duration)}</strong></div>"
-        for label, duration in rows
-    )
-    return (
-        '<div class="e2sg-timings"><h3 class="e2sg-telemetry-subtitle">Cell timings</h3>'
-        f"{content}</div>"
-    )
 
 
 def _mapping(value: object) -> dict[str, Any]:
@@ -232,3 +233,16 @@ def _bytes(value: object) -> str:
     if amount >= 1024**3:
         return f"{amount / 1024**3:.1f} GiB"
     return f"{amount / 1024**2:.0f} MiB"
+
+
+def _traffic_bytes(value: object) -> str:
+    if value is None:
+        return "–"
+    amount = _number(value)
+    if amount >= 1024**3:
+        return f"{amount / 1024**3:.1f} GiB"
+    if amount >= 1024**2:
+        return f"{amount / 1024**2:.1f} MiB"
+    if amount >= 1024:
+        return f"{amount / 1024:.1f} KiB"
+    return f"{amount:.0f} B"

@@ -29,16 +29,57 @@ The panel is generated only after an example is executed with collection enabled
 
 ## What is shown
 
-- Wall-clock runtime and per-code-cell timing bars
-- Process-tree CPU utilization and peak resident memory
-- GPU utilization, memory, and power traces when `nvidia-smi` is available
+- Total wall-clock execution time
+- Per-phase process-tree CPU utilization and peak resident memory
+- Per-phase host-wide network traffic
+- Per-phase GPU utilization, memory, and power traces when `nvidia-smi` is available
 - CPU model, system RAM, operating system, and Python version
 - GPU model, total memory, driver version, and driver-supported CUDA version
 
-Sampling is deliberately lightweight and configurable. The minimum interval is 0.25 seconds;
-one second is a useful default for longer GPU examples. GPU metrics are device-level, which
-means other workloads on a shared GPU can influence them. Hostnames and user names are never
-collected.
+Sampling is deliberately lightweight and configurable. CPU usage is calculated from cumulative
+CPU time across the UV process tree and observed every 0.1 seconds, so short examples do not
+inherit the meaningless zero returned by a first non-blocking percentage sample. As in `top`,
+100% represents one fully occupied logical core and multi-threaded examples can exceed 100%.
+
+The configured interval controls the retained resource samples and GPU queries; its minimum is
+0.25 seconds, and one second is a useful default for longer GPU examples. GPU metrics are
+device-level, which means other workloads on a shared GPU can influence them. Hostnames and
+user names are never collected.
+
+## Profile workflow phases
+
+Use standard Jupytext cell tags to separate setup, inference, and plotting. Tags do not alter
+normal Python execution and do not require the gallery package inside the example environment:
+
+```python
+# %% tags=["e2sg-profile:setup"]
+model = load_model()
+data = download_inputs()
+
+# %% tags=["e2sg-profile:inference"]
+prediction = model(data)
+
+# %% tags=["e2sg-profile:plotting"]
+plot(prediction)
+```
+
+Each named phase becomes an expandable dashboard section with its own duration, CPU, memory,
+network, and GPU metrics. The `inference` section starts expanded; other phases start collapsed.
+Repeating the same tag on multiple cells combines those cells into one phase.
+
+The general panel does not show aggregate metric tiles. Total runtime appears beside the
+**Profiled phases** heading, before any phase is opened. If an example has no profile tags, no
+metric grid is rendered; the compact runtime line appears above the execution environment.
+
+Network receive and send values come from host network-interface counters because portable
+per-process counters are not available. They accurately describe a dedicated runner, but may
+include unrelated traffic on a shared host. The end-to-end runtime remains visible above the
+phase sections so excluding downloads from inference utilization does not hide their cost.
+
+Package and interpreter provenance is stored separately in each retained run's
+`environment.json`, in `manifest.json`, and in the downloadable notebook metadata. See
+[Cached results and rendering](caching.md#durable-results) for the recorded fields and secret
+redaction behavior.
 
 ## Material theme integration
 

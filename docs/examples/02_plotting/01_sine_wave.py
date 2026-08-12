@@ -20,13 +20,18 @@ Use an example-specific UV dependency and let the runner capture a Matplotlib fi
 # If a code cell leaves a Matplotlib figure open without saving it, the execution harness
 # saves and closes the figure automatically.
 
-# %%
+# %% tags=["e2sg-profile:setup"]
 import matplotlib.pyplot as plt
 import numpy as np
 
 x = np.linspace(0, 2 * np.pi, 256)
+
+# %% tags=["e2sg-profile:inference"]
+y = np.sin(x)
+
+# %% tags=["e2sg-profile:plotting"]
 figure, axis = plt.subplots(figsize=(9, 4.5))
-axis.plot(x, np.sin(x), color="#76b900", linewidth=3)
+axis.plot(x, y, color="#76b900", linewidth=3)
 axis.axhline(0, color="#666666", linewidth=1)
 axis.set(xlabel="x", ylabel="sin(x)", title="Automatically captured figure")
 axis.grid(alpha=0.2)

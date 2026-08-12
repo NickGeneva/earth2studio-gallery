@@ -5,11 +5,24 @@ output.
 
 ## Durable results
 
-`.e2sgallery/` contains the successful execution manifests, captured images, cell output, and
-telemetry. This is the state that a GPU workflow should retain between runs. A result's
+`.e2sgallery/` contains the successful execution manifests, environment snapshots, captured
+images, cell output, and telemetry. This is the state that a GPU workflow should retain
+between runs. A result's
 fingerprint covers the example source, resolved runner configuration, and gallery runner
 version. It is not based on the repository commit, so unrelated commits do not invalidate an
 example.
+
+Each run directory contains an `environment.json` snapshot captured from inside the isolated
+UV harness. It records the actual interpreter, UV environment identifier, sorted installed
+package versions and direct-source commits, UV version and sanitized invocation, effective
+PEP 723 metadata, repository commit and dirty state, and the repository `uv.lock` hash. The
+snapshot explicitly notes that a PEP 723 script environment is resolved independently from
+the repository lockfile. It is also embedded in the downloadable notebook metadata and the
+run's `manifest.json`.
+
+Configured variables and common CUDA, PyTorch, NVIDIA, OpenMP, and MKL variables are recorded.
+Values whose names indicate tokens, keys, passwords, credentials, authentication, or secrets
+are replaced with `<redacted>`.
 
 Use `build` to update all stale results or a selected subset:
 

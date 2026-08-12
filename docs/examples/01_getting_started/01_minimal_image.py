@@ -18,7 +18,7 @@ Create a small gallery example with only the package's built-in Pillow dependenc
 # Importing the version demonstrates that this isolated example environment installed
 # Earth2Studio Gallery directly from its Git repository.
 
-# %%
+# %% tags=["e2sg-profile:setup"]
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -32,7 +32,7 @@ print(f"Running with earth2studio-gallery {__version__}")
 # ----------------------
 # Any new PNG, JPEG, WebP, GIF, or SVG file is collected after the cell completes.
 
-# %%
+# %% tags=["e2sg-profile:plotting"]
 output = Path("outputs")
 output.mkdir(exist_ok=True)
 

@@ -21,7 +21,8 @@ models and optional dependencies differ substantially.
 - content-addressed successful-run cache; unchanged GPU examples do not rerun
 - zero-execution full-gallery rendering from retained results
 - individual, section, glob, and full-gallery selection
-- cell-level standard output, errors, and generated image collection
+- ordered, scrollable console output plus cell-level errors and generated images
+- phase-aware runtime, GPU, CPU, memory, and host-network telemetry
 - fast Pillow thumbnail generation and native lazy-loaded Material cards
 - Zensical-first standalone CLI plus a compatible MkDocs plugin
 - no Sphinx, Jupyter, notebook kernel, or docutils dependency
@@ -58,6 +59,8 @@ plugins:
       output_dir: gallery
       execute: stale       # stale | always | never
       jobs: 1              # safe default for a single GPU
+      output_open: false   # expand console output by default
+      output_max_height: 400  # scroll after this many CSS pixels
       download_button_color: "#76b900"
 
 extra_css:

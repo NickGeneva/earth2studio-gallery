@@ -16,7 +16,7 @@ Printed output is associated with the code cell and rendered beneath the source.
 # A computation with visible output
 # ---------------------------------
 
-# %%
+# %% tags=["e2sg-profile:inference"]
 from earth2studio_gallery import __version__
 
 temperatures = [13.2, 14.8, 17.1, 16.4]

@@ -17,6 +17,8 @@ image_max_height = 1600
 image_quality = 85
 image_min_bytes = 131072
 generate_notebooks = true
+output_open = false
+output_max_height = 400
 download_button_color = "#76b900"
 collect_telemetry = false
 telemetry_interval = 1.0
@@ -41,6 +43,8 @@ uv_args = ["--no-progress"]
 | `image_quality` | WebP quality from 1 to 100 |
 | `image_min_bytes` | Minimum source size to optimize, unless dimensions exceed the limits |
 | `generate_notebooks` | Generate downloadable `.ipynb` files with captured outputs |
+| `output_open` | Expand captured console output by default; defaults to `false` |
+| `output_max_height` | Maximum expanded console height in pixels; defaults to `400` |
 | `download_button_color` | CSS color for download buttons; defaults to the theme accent |
 | `collect_telemetry` | Add an execution profile with resource and hardware telemetry |
 | `telemetry_interval` | Resource sampling interval in seconds (minimum `0.25`) |
@@ -56,6 +60,17 @@ their original formats.
 The download-button setting accepts a single CSS color such as `#76b900`, `navy`, or
 `rgb(118 185 0)`. For stylesheet-level control, override
 `--e2sg-download-button-color` after loading `earth2studio-gallery.css`.
+
+## Console output
+
+Standard output, logging, progress bars, warnings, and other standard-error text are merged
+in write order into one **Console output** disclosure beneath the corresponding code cell.
+The disclosure is closed by default and becomes vertically scrollable after 400 pixels.
+Only an actual uncaught exception receives error styling.
+
+Set `output_open = true` to expand every console disclosure initially, and customize
+`output_max_height` to change its vertical limit. The same options are available under the
+MkDocs plugin configuration.
 
 ## Runtime telemetry
 

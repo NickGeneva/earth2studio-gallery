@@ -65,6 +65,7 @@ def build_notebook(
             "earth2studio_gallery": {
                 "source": example.relative.as_posix(),
                 "script": _inline_script_metadata(example.source),
+                "environment": result.environment if result else {},
             },
             "kernelspec": {
                 "display_name": "Python 3",
