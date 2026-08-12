@@ -10,6 +10,11 @@ PYTHON_ROLE = re.compile(
     r":(?:py:)?(?:attr|class|const|data|exc|func|meth|mod|obj):`(?P<short>~)?(?P<body>[^`]+)`"
 )
 RST_LINK = re.compile(r"`([^`<>]+?)\s*<([^<>]+)>`_")
+PYTHON_TARGET = r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+"
+MARKDOWN_REFERENCE = re.compile(
+    rf"\[(?P<label>[^\]\n]+)\]\[(?P<target>{PYTHON_TARGET})\]|"
+    rf"\[(?P<collapsed>{PYTHON_TARGET})\]\[\]"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,7 +68,7 @@ def example_metadata(path: Path) -> tuple[str, str]:
     return path.stem.replace("_", " ").title(), ""
 
 
-def markdown(text: str, source: Path) -> str:
+def markdown(text: str, source: Path, reference_links: dict[str, str] | None = None) -> str:
     lines = text.strip().splitlines()
     output: list[str] = []
     index = 0
@@ -87,7 +92,36 @@ def markdown(text: str, source: Path) -> str:
         line = RST_LINK.sub(lambda match: f"[{match.group(1)}]({match.group(2)})", line)
         output.append(PYTHON_ROLE.sub(_python_reference, line))
         index += 1
-    return "\n".join(output).strip()
+    rendered = "\n".join(output).strip()
+    if not reference_links:
+        return rendered
+
+    def resolve(match: re.Match[str]) -> str:
+        target = match.group("target") or match.group("collapsed")
+        url = reference_links.get(target)
+        if not url:
+            return match.group(0)
+        return f"[{match.group('label') or target}]({url})"
+
+    return MARKDOWN_REFERENCE.sub(resolve, rendered)
+
+
+def explicit_references(path: Path) -> set[str]:
+    """Return explicitly linked Python objects from narrative cells only."""
+    found: set[str] = set()
+    for cell in cells(path):
+        if cell.kind != "markdown":
+            continue
+        for match in PYTHON_ROLE.finditer(cell.source):
+            body = match.group("body").strip()
+            explicit = re.fullmatch(r".+?\s*<\s*([^<>]+?)\s*>", body)
+            target = explicit.group(1) if explicit else body
+            target = target.removeprefix("~").strip()
+            if re.fullmatch(PYTHON_TARGET, target):
+                found.add(target)
+        for match in MARKDOWN_REFERENCE.finditer(cell.source):
+            found.add(match.group("target") or match.group("collapsed"))
+    return found
 
 
 def _narrative(source: str) -> str | None:

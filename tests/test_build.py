@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
+from earth2studio_gallery.backreferences import render_backreferences
 from earth2studio_gallery.builder import GalleryBuilder
 from earth2studio_gallery.config import GalleryConfig
 from earth2studio_gallery.progress import ProgressEvent
@@ -23,6 +24,7 @@ image_max_height = 10
 image_min_bytes = 0
 collect_telemetry = true
 telemetry_interval = 0.25
+backreferences = true
 download_button_color = "#123456"
 output_open = true
 output_max_height = 321
@@ -40,7 +42,8 @@ HF_TOKEN = "not-a-real-secret"
 """Tiny Plot
 =========
 
-An integration test.
+An integration test using [`Thing`][package.api.Thing] and
+:func:`~package.api.create_thing`.
 """
 # /// script
 # dependencies = ["pillow>=11"]
@@ -56,6 +59,18 @@ Image.new("RGB", (20, 10), "red").save("result.png")
         encoding="utf-8",
     )
     config = GalleryConfig.load(tmp_path)
+    api_page = tmp_path / "docs" / "api" / "thing.md"
+    api_page.parent.mkdir(parents=True)
+    api_page.write_text(
+        "# Thing API\n\n<!-- e2sg-backreferences: package.api.Thing -->\n\n"
+        "<!-- e2sg-backreferences: package.api.create_thing -->\n",
+        encoding="utf-8",
+    )
+    guide = tmp_path / "docs" / "guide.md"
+    guide.write_text(
+        "```markdown\n<!-- e2sg-backreferences: package.api.Thing -->\n```\n",
+        encoding="utf-8",
+    )
     progress: list[ProgressEvent] = []
     first = GalleryBuilder(config, progress=progress.append).build()
     result = next(item for item in first.results.values() if item)
@@ -88,6 +103,8 @@ Image.new("RGB", (20, 10), "red").save("result.png")
     assert '<details class="e2sg-output" open>' in page_text
     assert "Console output" in page_text
     assert "Standard error" not in page_text
+    assert "[`Thing`](../../api/thing.md#package.api.Thing)" in page_text
+    assert "[`create_thing`](../../api/thing.md#package.api.create_thing)" in page_text
     assert "Download Jupyter notebook" in page_text
     assert 'href="../../_assets/basics-plot/plot.py"' in page_text
     assert 'href="../../_assets/basics-plot/plot.ipynb"' in page_text
@@ -134,8 +151,25 @@ Image.new("RGB", (20, 10), "red").save("result.png")
     assert 'href="basics/plot.md"' not in gallery
     assert "<small>" not in gallery
     assert not (tmp_path / "docs" / "gallery" / "basics" / "index.md").exists()
+    api_text = api_page.read_text(encoding="utf-8")
+    assert "Examples using <code>package.api.Thing</code>" in api_text
+    assert "Examples using <code>package.api.create_thing</code>" in api_text
+    assert 'href="../../gallery/basics/plot/"' in api_text
+    assert 'src="../../gallery/_assets/basics-plot/thumbnail.webp"' in api_text
+    backreferences = json.loads(
+        (config.cache_dir / "backreferences.json").read_text(encoding="utf-8")
+    )
+    assert set(backreferences["objects"]) == {
+        "package.api.Thing",
+        "package.api.create_thing",
+    }
+    assert backreferences["objects"]["package.api.Thing"][0]["source"] == "basics/plot.py"
+    assert guide.read_text(encoding="utf-8") == (
+        "```markdown\n<!-- e2sg-backreferences: package.api.Thing -->\n```\n"
+    )
 
     default_config = GalleryConfig.load(tmp_path / "empty-project")
+    assert default_config.backreferences is False
     assert default_config.output_open is False
     assert default_config.output_max_height == 400
 
@@ -193,3 +227,52 @@ def test_console_output_cleans_control_codes_and_only_styles_failures() -> None:
     assert " open" not in rendered
     assert "Error output" in rendered
     assert "&lt;failure&gt;" in rendered
+
+
+def test_disabled_backreferences_remove_managed_content(tmp_path: Path) -> None:
+    page = tmp_path / "docs" / "api.md"
+    page.parent.mkdir(parents=True)
+    page.write_text(
+        "# API\n\n<!-- e2sg-backreferences: package.Thing -->\n"
+        "<!-- e2sg-backreferences-generated:start -->\n"
+        "old generated cards\n"
+        "<!-- e2sg-backreferences-generated:end -->\n",
+        encoding="utf-8",
+    )
+    config = GalleryConfig.load(tmp_path)
+
+    render_backreferences([], config)
+
+    assert page.read_text(encoding="utf-8") == (
+        "# API\n\n<!-- e2sg-backreferences: package.Thing -->\n"
+    )
+    registry = json.loads((config.cache_dir / "backreferences.json").read_text(encoding="utf-8"))
+    assert registry == {"objects": {}, "version": 1}
+
+
+def test_selected_build_indexes_references_from_all_examples(tmp_path: Path) -> None:
+    (tmp_path / "gallery.toml").write_text("[gallery]\nbackreferences = true\n", encoding="utf-8")
+    examples = tmp_path / "examples"
+    examples.mkdir()
+    (examples / "first.py").write_text(
+        '# %%\n"""First\n=====\n\nUse [`One`][package.One].\n"""\n',
+        encoding="utf-8",
+    )
+    (examples / "second.py").write_text(
+        '# %%\n"""Second\n======\n\nUse [`Two`][package.Two].\n"""\n',
+        encoding="utf-8",
+    )
+    api = tmp_path / "docs" / "api.md"
+    api.parent.mkdir()
+    api.write_text(
+        "<!-- e2sg-backreferences: package.One -->\n" "<!-- e2sg-backreferences: package.Two -->\n",
+        encoding="utf-8",
+    )
+    config = GalleryConfig.load(tmp_path)
+
+    report = GalleryBuilder(config).build(["first"], execute="never")
+
+    assert [example.source.name for example in report.examples] == ["first.py"]
+    registry = json.loads((config.cache_dir / "backreferences.json").read_text(encoding="utf-8"))
+    assert set(registry["objects"]) == {"package.One", "package.Two"}
+    assert "Examples using <code>package.Two</code>" in api.read_text(encoding="utf-8")

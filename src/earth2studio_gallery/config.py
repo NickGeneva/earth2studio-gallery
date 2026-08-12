@@ -35,6 +35,7 @@ class GalleryConfig:
     image_quality: int = 85
     image_min_bytes: int = 131072
     generate_notebooks: bool = True
+    backreferences: bool = False
     output_open: bool = False
     output_max_height: int = 400
     download_button_color: str | None = None
@@ -93,6 +94,7 @@ class GalleryConfig:
             image_quality=min(100, max(1, int(data.get("image_quality", 85)))),
             image_min_bytes=max(0, int(data.get("image_min_bytes", 131072))),
             generate_notebooks=bool(data.get("generate_notebooks", True)),
+            backreferences=bool(data.get("backreferences", False)),
             output_open=bool(data.get("output_open", False)),
             output_max_height=max(80, int(data.get("output_max_height", 400))),
             download_button_color=(

@@ -15,6 +15,9 @@ Printed output is associated with the code cell and rendered beneath the source.
 # %%
 # A computation with visible output
 # ---------------------------------
+#
+# Legacy Sphinx roles such as :func:`~earth2studio_gallery.parser.markdown` are converted
+# to MkDocs links and indexed for API-page backreferences.
 
 # %% tags=["e2sg-profile:inference"]
 from earth2studio_gallery import __version__

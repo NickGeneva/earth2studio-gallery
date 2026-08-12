@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from earth2studio_gallery.parser import cells, example_metadata, markdown
+from earth2studio_gallery.parser import cells, example_metadata, explicit_references, markdown
 
 
 def test_parses_jupytext_gallery_cells(tmp_path: Path) -> None:
@@ -53,6 +53,19 @@ def test_python_roles_become_api_cross_references(tmp_path: Path) -> None:
         )
     )
 
+    resolved = markdown(
+        ":func:`~package.module.create` and [`Thing`][package.module.Thing]",
+        tmp_path / "example.py",
+        {
+            "package.module.create": "../../api/#package.module.create",
+            "package.module.Thing": "../../api/#package.module.Thing",
+        },
+    )
+    assert resolved == (
+        "[`create`](../../api/#package.module.create) and "
+        "[`Thing`](../../api/#package.module.Thing)"
+    )
+
 
 def test_literalinclude_is_resolved_without_sphinx(tmp_path: Path) -> None:
     (tmp_path / "library.py").write_text(
@@ -99,3 +112,26 @@ def test_rst_external_link_is_converted_without_sphinx(tmp_path: Path) -> None:
     assert rendered == (
         "Open an [Earth2Studio issue](https://github.com/NVIDIA/earth2studio/issues)."
     )
+
+
+def test_explicit_references_only_scan_narrative_cells(tmp_path: Path) -> None:
+    source = tmp_path / "references.py"
+    source.write_text(
+        '''# %%
+"""
+Use [`Widget`][package.models.Widget], [package.models.Other][], and
+:func:`~package.workflows.run`. A normal [website](https://example.com) is ignored.
+"""
+# %%
+from package.models import Hidden
+
+Hidden()
+''',
+        encoding="utf-8",
+    )
+
+    assert explicit_references(source) == {
+        "package.models.Other",
+        "package.models.Widget",
+        "package.workflows.run",
+    }

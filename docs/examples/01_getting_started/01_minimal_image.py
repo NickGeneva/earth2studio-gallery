@@ -17,6 +17,8 @@ Create a small gallery example with only the package's built-in Pillow dependenc
 # ------------------
 # Importing the version demonstrates that this isolated example environment installed
 # Earth2Studio Gallery directly from its Git repository.
+# Project-wide behavior is configured with
+# [`GalleryConfig`][earth2studio_gallery.config.GalleryConfig].
 
 # %% tags=["e2sg-profile:setup"]
 from pathlib import Path

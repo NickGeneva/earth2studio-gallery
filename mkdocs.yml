@@ -33,11 +33,13 @@ theme:
 
 plugins:
   - search
+  - autorefs
   - earth2studio-gallery:
       examples_dir: docs/examples
       output_dir: gallery
       execute: never
       jobs: 1
+      backreferences: true
       collect_telemetry: true
       download_button_color: "#76b900"
 
@@ -71,4 +73,5 @@ nav:
   - Runtime telemetry: telemetry.md
   - Caching and rendering: caching.md
   - Configuration: configuration.md
+  - API reference: reference.md
   - Development: development.md

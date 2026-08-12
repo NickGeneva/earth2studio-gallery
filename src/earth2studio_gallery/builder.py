@@ -3,6 +3,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 
+from .backreferences import api_reference_pages, render_backreferences
 from .config import GalleryConfig
 from .discovery import Example, discover
 from .progress import ProgressCallback, report
@@ -36,7 +37,9 @@ class GalleryBuilder:
         execute: str | None = None,
         force: bool = False,
     ) -> BuildReport:
-        examples = discover(self.config, selectors)
+        all_examples = discover(self.config)
+        examples = discover(self.config, selectors) if selectors else all_examples
+        reference_pages = api_reference_pages(self.config) if self.config.backreferences else {}
         report(self.progress, "discover", f"selected {len(examples)} example(s)")
         mode = execute or self.config.execute
         results: dict[str, RunResult | None] = {example.slug: None for example in examples}
@@ -94,10 +97,12 @@ class GalleryBuilder:
                 results[example.slug],
                 self.config,
                 progress=self.progress,
+                reference_pages=reference_pages,
             )
         report(self.progress, "index", "rendering combined gallery index")
         render_indexes(examples, results, self.config)
         write_css(self.config)
+        render_backreferences(all_examples, self.config, progress=self.progress)
         failures = sum(1 for result in results.values() if result and result.returncode)
         report(
             self.progress,

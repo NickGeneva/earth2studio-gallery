@@ -17,6 +17,7 @@ models and optional dependencies differ substantially.
 
 - Sphinx-Gallery-style `# %%` scripts and narrative docstrings/comments
 - Sphinx-style Python API roles linked through mkdocstrings/autorefs
+- opt-in explicit API backreferences with Material example cards
 - per-example UV environments, Python versions, environment variables, and timeouts
 - content-addressed successful-run cache; unchanged GPU examples do not rerun
 - zero-execution full-gallery rendering from retained results
@@ -59,6 +60,7 @@ plugins:
       output_dir: gallery
       execute: stale       # stale | always | never
       jobs: 1              # safe default for a single GPU
+      backreferences: true # index explicit narrative API links
       output_open: false   # expand console output by default
       output_max_height: 400  # scroll after this many CSS pixels
       download_button_color: "#76b900"
@@ -153,6 +155,12 @@ cells, an opening reStructuredText-style docstring, narrative comment cells,
 Python code cells, common Python roles, and `literalinclude`. Generated pages are
 plain Markdown plus Material-compatible HTML cards, so Zensical or MkDocs owns the final
 HTML.
+
+With `backreferences: true`, native Markdown/autorefs links such as
+``[`deterministic`][earth2studio.run.deterministic]`` and legacy roles such as
+``:func:`~earth2studio.run.deterministic``` are indexed from narrative cells only. Put
+`<!-- e2sg-backreferences: earth2studio.run.deterministic -->` on the API page where its
+example cards should appear. Python imports and calls are never inferred.
 
 The repository contains a self-hosting documentation project under `docs/`. Its small
 numbered examples install the package from this Git repository, and the documentation

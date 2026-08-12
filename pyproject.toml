@@ -12,6 +12,7 @@ license = { file = "LICENSE" }
 authors = [{ name = "NVIDIA" }]
 dependencies = [
   "mkdocs>=1.6.1,<2",
+  "mkdocs-autorefs>=1.4,<2",
   "mkdocs-material>=9.7.7,<10",
   "pillow>=11.0",
   "psutil>=7.0",
@@ -47,6 +48,7 @@ testpaths = ["tests"]
 
 [tool.earth2studio-gallery]
 examples_dir = "docs/examples"
+backreferences = true
 collect_telemetry = true
 telemetry_interval = 1.0
 download_button_color = "#76b900"

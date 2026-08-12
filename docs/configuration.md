@@ -17,6 +17,7 @@ image_max_height = 1600
 image_quality = 85
 image_min_bytes = 131072
 generate_notebooks = true
+backreferences = false
 output_open = false
 output_max_height = 400
 download_button_color = "#76b900"
@@ -43,6 +44,7 @@ uv_args = ["--no-progress"]
 | `image_quality` | WebP quality from 1 to 100 |
 | `image_min_bytes` | Minimum source size to optimize, unless dimensions exceed the limits |
 | `generate_notebooks` | Generate downloadable `.ipynb` files with captured outputs |
+| `backreferences` | Index explicit narrative API links and add example cards at API markers |
 | `output_open` | Expand captured console output by default; defaults to `false` |
 | `output_max_height` | Maximum expanded console height in pixels; defaults to `400` |
 | `download_button_color` | CSS color for download buttons; defaults to the theme accent |

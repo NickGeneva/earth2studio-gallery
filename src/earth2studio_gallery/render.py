@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import io
+import os
 import re
 import shutil
 from pathlib import Path
@@ -22,6 +23,7 @@ def render_example(
     result: RunResult | None,
     config: GalleryConfig,
     progress: ProgressCallback | None = None,
+    reference_pages: dict[str, Path] | None = None,
 ) -> Path:
     name = example.relative.as_posix()
     report(progress, "render", "converting cells to Markdown", name)
@@ -58,9 +60,10 @@ def render_example(
             _copy_if_changed(thumbnail, asset_dir / "thumbnail.webp")
 
     output: list[str] = []
+    reference_links = _reference_links(relative, reference_pages or {}, config)
     for cell in cells(example.source):
         if cell.kind == "markdown":
-            output.append(markdown(cell.source, example.source))
+            output.append(markdown(cell.source, example.source, reference_links))
         else:
             output.append(f"```python\n{cell.source.rstrip()}\n```")
             event = events.get(cell.index, {})
@@ -111,6 +114,17 @@ def render_example(
     _write_text_if_changed(target, "\n\n".join(item for item in output if item).rstrip() + "\n")
     report(progress, "render", f"wrote {target.relative_to(config.docs_dir).as_posix()}", name)
     return target
+
+
+def _reference_links(
+    example_page: Path, reference_pages: dict[str, Path], config: GalleryConfig
+) -> dict[str, str]:
+    generated_page = config.output_dir / example_page
+    links: dict[str, str] = {}
+    for target, page in reference_pages.items():
+        destination = Path(os.path.relpath(page, generated_page.parent)).as_posix()
+        links[target] = f"{destination}#{target}"
+    return links
 
 
 def _output_image(example: Example, path: Path) -> str:
