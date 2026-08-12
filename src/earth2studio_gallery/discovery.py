@@ -10,6 +10,8 @@ from .parser import example_metadata
 
 @dataclass(frozen=True, slots=True)
 class Example:
+    """A discovered example and its presentation metadata."""
+
     source: Path
     relative: Path
     slug: str
@@ -19,20 +21,31 @@ class Example:
 
 
 def discover(config: GalleryConfig, selectors: list[str] | None = None) -> list[Example]:
-    selectors = selectors or []
+    """Discover examples and optionally filter them with CLI-style selectors."""
     examples: list[Example] = []
     for source in sorted(config.examples_dir.rglob(config.pattern)):
         if source.name.startswith("_") or source.name.endswith(".gallery.py"):
             continue
         relative = source.relative_to(config.examples_dir)
-        normalized = relative.as_posix()
-        if selectors and not any(_matches(normalized, source.stem, item) for item in selectors):
-            continue
         title, summary = example_metadata(source)
         section = relative.parent.as_posix() if relative.parent != Path(".") else "Examples"
         slug = "-".join(relative.with_suffix("").parts)
         examples.append(Example(source, relative, slug, title, summary, section))
-    return examples
+    return select_examples(examples, selectors)
+
+
+def select_examples(examples: list[Example], selectors: list[str] | None) -> list[Example]:
+    """Filter an existing discovery result without reparsing source files."""
+    if not selectors:
+        return examples
+    return [
+        example
+        for example in examples
+        if any(
+            _matches(example.relative.as_posix(), example.source.stem, selector)
+            for selector in selectors
+        )
+    ]
 
 
 def _matches(path: str, stem: str, selector: str) -> bool:

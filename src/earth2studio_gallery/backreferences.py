@@ -1,3 +1,5 @@
+"""Explicit narrative backreferences for generated API pages."""
+
 from __future__ import annotations
 
 import html
@@ -6,16 +8,14 @@ import re
 from collections.abc import Callable
 from pathlib import Path
 
+from .cards import render_gallery_card
 from .config import GalleryConfig
 from .discovery import Example
 from .parser import explicit_references
 from .progress import ProgressCallback, report
 
 _TARGET = r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+"
-_MARKER = re.compile(
-    rf"^(?P<indent>[ \t]*)<!--\s*e2sg-backreferences:\s*(?P<target>{_TARGET})\s*-->[ \t]*$",
-    re.MULTILINE,
-)
+_MARKER = re.compile(rf"^[ \t]*<!--\s*e2sg-backreferences:\s*(?P<target>{_TARGET})\s*-->[ \t]*$")
 _GENERATED = re.compile(
     r"\n?^[ \t]*<!-- e2sg-backreferences-generated:start -->\n.*?"
     r"^[ \t]*<!-- e2sg-backreferences-generated:end -->[ \t]*(?:\n|$)",
@@ -167,44 +167,31 @@ def _registry_entry(example: Example, config: GalleryConfig) -> dict[str, str | 
 def _cards(page: Path, target: str, examples: list[Example], config: GalleryConfig) -> str:
     output = config.output_dir.relative_to(config.docs_dir)
     page_relative = page.relative_to(config.docs_dir).with_suffix("")
+    if page_relative.name == "index":
+        page_relative = page_relative.parent
     prefix = "../" * len(page_relative.parts)
-    cards: list[str] = []
+    cards = []
     for example in examples:
-        title = html.escape(example.title)
-        summary = html.escape(example.summary)
         link = prefix + (output / example.relative.with_suffix("")).as_posix() + "/"
         thumbnail = config.output_dir / "_assets" / example.slug / "thumbnail.webp"
-        if thumbnail.exists():
-            source = prefix + (output / "_assets" / example.slug / "thumbnail.webp").as_posix()
-            media = (
-                f'<img class="e2sg-card-image" src="{source}" alt="Preview of {title}" '
-                'loading="lazy">'
-            )
-        else:
-            media = (
-                '<div class="e2sg-card-placeholder" aria-hidden="true">'
-                '<span class="e2sg-card-placeholder-icon">'
-                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-                'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
-                '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>'
-                '<path d="M14 2v6h6M10 13l-2 2 2 2M14 13l2 2-2 2"/>'
-                "</svg></span></div>"
-            )
-        cards.append(
-            f'<a class="e2sg-gallery-card" href="{link}">{media}'
-            f'<span class="e2sg-card-body"><strong>{title}</strong>'
-            f'<span class="e2sg-card-summary">{summary}</span></span></a>'
+        thumbnail_url = (
+            prefix + (output / "_assets" / example.slug / "thumbnail.webp").as_posix()
+            if thumbnail.exists()
+            else None
         )
+        cards.append(render_gallery_card(example, href=link, thumbnail_url=thumbnail_url))
     escaped_target = html.escape(target)
     return "\n".join(
         (
             "<!-- e2sg-backreferences-generated:start -->",
+            "<!-- markdownlint-disable MD033 -->",
             f'<section class="e2sg-backreferences" data-e2sg-object="{escaped_target}">',
             f"<h2>Examples using <code>{escaped_target}</code></h2>",
             '<div class="e2sg-gallery-grid">',
             *cards,
             "</div>",
             "</section>",
+            "<!-- markdownlint-enable MD033 -->",
             "<!-- e2sg-backreferences-generated:end -->",
         )
     )

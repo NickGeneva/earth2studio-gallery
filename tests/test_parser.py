@@ -37,7 +37,7 @@ def test_python_roles_become_api_cross_references(tmp_path: Path) -> None:
             (
                 ":py:class:`package.module.Thing`",
                 ":func:`~package.module.create`",
-                ":py:meth:`custom label <package.module.Thing.run>`",
+                ":py:meth:`custom label <~package.module.Thing.run>`",
                 ":exc:`package.errors.Failure`",
             )
         ),

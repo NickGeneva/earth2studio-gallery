@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -154,6 +155,7 @@ Image.new("RGB", (20, 10), "red").save("result.png")
     api_text = api_page.read_text(encoding="utf-8")
     assert "Examples using <code>package.api.Thing</code>" in api_text
     assert "Examples using <code>package.api.create_thing</code>" in api_text
+    assert "<!-- markdownlint-disable MD033 -->" in api_text
     assert 'href="../../gallery/basics/plot/"' in api_text
     assert 'src="../../gallery/_assets/basics-plot/thumbnail.webp"' in api_text
     backreferences = json.loads(
@@ -229,28 +231,7 @@ def test_console_output_cleans_control_codes_and_only_styles_failures() -> None:
     assert "&lt;failure&gt;" in rendered
 
 
-def test_disabled_backreferences_remove_managed_content(tmp_path: Path) -> None:
-    page = tmp_path / "docs" / "api.md"
-    page.parent.mkdir(parents=True)
-    page.write_text(
-        "# API\n\n<!-- e2sg-backreferences: package.Thing -->\n"
-        "<!-- e2sg-backreferences-generated:start -->\n"
-        "old generated cards\n"
-        "<!-- e2sg-backreferences-generated:end -->\n",
-        encoding="utf-8",
-    )
-    config = GalleryConfig.load(tmp_path)
-
-    render_backreferences([], config)
-
-    assert page.read_text(encoding="utf-8") == (
-        "# API\n\n<!-- e2sg-backreferences: package.Thing -->\n"
-    )
-    registry = json.loads((config.cache_dir / "backreferences.json").read_text(encoding="utf-8"))
-    assert registry == {"objects": {}, "version": 1}
-
-
-def test_selected_build_indexes_references_from_all_examples(tmp_path: Path) -> None:
+def test_selected_build_indexes_all_examples_and_supports_opt_out(tmp_path: Path) -> None:
     (tmp_path / "gallery.toml").write_text("[gallery]\nbackreferences = true\n", encoding="utf-8")
     examples = tmp_path / "examples"
     examples.mkdir()
@@ -262,8 +243,8 @@ def test_selected_build_indexes_references_from_all_examples(tmp_path: Path) -> 
         '# %%\n"""Second\n======\n\nUse [`Two`][package.Two].\n"""\n',
         encoding="utf-8",
     )
-    api = tmp_path / "docs" / "api.md"
-    api.parent.mkdir()
+    api = tmp_path / "docs" / "api" / "index.md"
+    api.parent.mkdir(parents=True)
     api.write_text(
         "<!-- e2sg-backreferences: package.One -->\n" "<!-- e2sg-backreferences: package.Two -->\n",
         encoding="utf-8",
@@ -275,4 +256,15 @@ def test_selected_build_indexes_references_from_all_examples(tmp_path: Path) -> 
     assert [example.source.name for example in report.examples] == ["first.py"]
     registry = json.loads((config.cache_dir / "backreferences.json").read_text(encoding="utf-8"))
     assert set(registry["objects"]) == {"package.One", "package.Two"}
-    assert "Examples using <code>package.Two</code>" in api.read_text(encoding="utf-8")
+    api_text = api.read_text(encoding="utf-8")
+    assert "Examples using <code>package.Two</code>" in api_text
+    assert 'href="../gallery/first/"' in api_text
+
+    render_backreferences([], replace(config, backreferences=False))
+
+    api_text = api.read_text(encoding="utf-8")
+    assert api_text == (
+        "<!-- e2sg-backreferences: package.One -->\n" "<!-- e2sg-backreferences: package.Two -->\n"
+    )
+    registry = json.loads((config.cache_dir / "backreferences.json").read_text(encoding="utf-8"))
+    assert registry == {"objects": {}, "version": 1}

@@ -19,6 +19,8 @@ MARKDOWN_REFERENCE = re.compile(
 
 @dataclass(frozen=True, slots=True)
 class Cell:
+    """One parsed narrative or Python cell from an example script."""
+
     index: int
     kind: str
     source: str
@@ -26,6 +28,7 @@ class Cell:
 
 
 def cells(path: Path) -> list[Cell]:
+    """Parse a Jupytext percent-format script into gallery cells."""
     text = path.read_text(encoding="utf-8")
     matches = list(CELL.finditer(text))
     chunks: list[tuple[str, int]] = []
@@ -51,6 +54,7 @@ def cells(path: Path) -> list[Cell]:
 
 
 def example_metadata(path: Path) -> tuple[str, str]:
+    """Return the gallery title and summary from the first narrative cell."""
     for cell in cells(path):
         if cell.kind == "markdown":
             lines = cell.source.strip().splitlines()
@@ -69,6 +73,7 @@ def example_metadata(path: Path) -> tuple[str, str]:
 
 
 def markdown(text: str, source: Path, reference_links: dict[str, str] | None = None) -> str:
+    """Convert supported reStructuredText constructs to Markdown."""
     lines = text.strip().splitlines()
     output: list[str] = []
     index = 0
@@ -113,10 +118,7 @@ def explicit_references(path: Path) -> set[str]:
         if cell.kind != "markdown":
             continue
         for match in PYTHON_ROLE.finditer(cell.source):
-            body = match.group("body").strip()
-            explicit = re.fullmatch(r".+?\s*<\s*([^<>]+?)\s*>", body)
-            target = explicit.group(1) if explicit else body
-            target = target.removeprefix("~").strip()
+            _, target = _python_role_parts(match)
             if re.fullmatch(PYTHON_TARGET, target):
                 found.add(target)
         for match in MARKDOWN_REFERENCE.finditer(cell.source):
@@ -155,6 +157,11 @@ def _narrative(source: str) -> str | None:
 
 def _python_reference(match: re.Match[str]) -> str:
     """Convert a Sphinx Python role to an mkdocstrings/autorefs link."""
+    label, target = _python_role_parts(match)
+    return f"[`{label}`][{target}]"
+
+
+def _python_role_parts(match: re.Match[str]) -> tuple[str, str]:
     body = match.group("body").strip()
     explicit = re.fullmatch(r"(.+?)\s*<\s*([^<>]+?)\s*>", body)
     if explicit:
@@ -162,7 +169,7 @@ def _python_reference(match: re.Match[str]) -> str:
     else:
         target = body
         label = target.rsplit(".", 1)[-1] if match.group("short") else target
-    return f"[`{label.strip()}`][{target.strip()}]"
+    return label.strip(), target.strip().removeprefix("~")
 
 
 def _is_license_preamble(text: str) -> bool:

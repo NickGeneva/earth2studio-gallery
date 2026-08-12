@@ -51,6 +51,16 @@ uv_args = ["--no-progress"]
 | `collect_telemetry` | Add an execution profile with resource and hardware telemetry |
 | `telemetry_interval` | Resource sampling interval in seconds (minimum `0.25`) |
 
+For Zensical and standalone CLI builds, configure these values under
+`[tool.earth2studio-gallery]` or `[gallery]`. MkDocs builds may set the same values under the
+`earth2studio-gallery` plugin. Because Zensical does not execute that plugin hook, values that
+exist only in `mkdocs.yml` do not configure the standalone command.
+
+When backreferences are enabled, generate API Markdown before running the gallery command.
+Each API object needs a `<!-- e2sg-backreferences: package.object -->` marker. The registry
+is written to `.e2sgallery/backreferences.json`; disabling the option removes previously
+managed cards while preserving author markers.
+
 PEP 723 metadata remains the primary dependency declaration for each example. Directory
 and sidecar configuration is intended for infrastructure details such as GPU assignment,
 cache locations, and timeouts.

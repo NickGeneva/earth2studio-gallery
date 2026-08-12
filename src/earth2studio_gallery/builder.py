@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from .backreferences import api_reference_pages, render_backreferences
 from .config import GalleryConfig
-from .discovery import Example, discover
+from .discovery import Example, discover, select_examples
 from .progress import ProgressCallback, report
 from .render import render_example, render_indexes, write_css
 from .runner import RunResult, cached_result, run_example
@@ -13,6 +13,8 @@ from .runner import RunResult, cached_result, run_example
 
 @dataclass(slots=True)
 class BuildReport:
+    """Examples and execution results produced by a gallery build."""
+
     examples: list[Example]
     results: dict[str, RunResult | None]
 
@@ -26,6 +28,8 @@ class BuildReport:
 
 
 class GalleryBuilder:
+    """Execute examples and render their Zensical or MkDocs gallery pages."""
+
     def __init__(self, config: GalleryConfig, progress: ProgressCallback | None = None):
         self.config = config
         self.progress = progress
@@ -37,8 +41,9 @@ class GalleryBuilder:
         execute: str | None = None,
         force: bool = False,
     ) -> BuildReport:
+        """Build selected examples according to the configured execution policy."""
         all_examples = discover(self.config)
-        examples = discover(self.config, selectors) if selectors else all_examples
+        examples = select_examples(all_examples, selectors)
         reference_pages = api_reference_pages(self.config) if self.config.backreferences else {}
         report(self.progress, "discover", f"selected {len(examples)} example(s)")
         mode = execute or self.config.execute

@@ -9,6 +9,8 @@ from typing import Any
 
 @dataclass(frozen=True, slots=True)
 class ExampleConfig:
+    """Resolved execution settings for one example."""
+
     python: str | None = None
     timeout: int = 7200
     extra_dependencies: tuple[str, ...] = ()
@@ -20,6 +22,8 @@ class ExampleConfig:
 
 @dataclass(frozen=True, slots=True)
 class GalleryConfig:
+    """Resolved project settings for gallery execution and rendering."""
+
     root: Path
     examples_dir: Path
     docs_dir: Path
@@ -54,6 +58,7 @@ class GalleryConfig:
         cache_dir: str | Path = ".e2sgallery",
         overrides: dict[str, Any] | None = None,
     ) -> GalleryConfig:
+        """Load settings from the project files and explicit overrides."""
         root_path = Path(root).resolve()
         data: dict[str, Any] = {}
         pyproject = root_path / "pyproject.toml"
@@ -151,6 +156,7 @@ class GalleryConfig:
         )
 
     def environment(self, example: ExampleConfig) -> dict[str, str]:
+        """Return the process environment for an example execution."""
         env = os.environ.copy()
         env.update(example.env)
         env.setdefault("MPLBACKEND", "Agg")

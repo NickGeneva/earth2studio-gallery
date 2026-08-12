@@ -46,8 +46,21 @@ unique filename stem, or a glob.
 
 ## Zensical configuration
 
-Zensical can read an existing `mkdocs.yml`, which is currently the recommended migration
-path for Material projects:
+The standalone CLI used with Zensical reads project settings from `pyproject.toml`:
+
+```toml
+[tool.earth2studio-gallery]
+examples_dir = "examples"
+output_dir = "docs/gallery"
+execute = "stale"
+jobs = 1
+backreferences = true
+output_open = false
+output_max_height = 400
+download_button_color = "#76b900"
+```
+
+Zensical can read the Material settings in an existing `mkdocs.yml`:
 
 ```yaml
 theme:
@@ -55,15 +68,6 @@ theme:
 
 plugins:
   - search
-  - earth2studio-gallery:
-      examples_dir: examples
-      output_dir: gallery
-      execute: stale       # stale | always | never
-      jobs: 1              # safe default for a single GPU
-      backreferences: true # index explicit narrative API links
-      output_open: false   # expand console output by default
-      output_max_height: 400  # scroll after this many CSS pixels
-      download_button_color: "#76b900"
 
 extra_css:
   - assets/stylesheets/earth2studio-gallery.css
@@ -80,10 +84,9 @@ markdown_extensions:
   - pymdownx.superfences
 ```
 
-Zensical does not yet provide a public API for third-party modules. It accepts this shared
-configuration but does not invoke the gallery's MkDocs plugin hook, so run the standalone
-gallery command before the Zensical backend. The explicit `extra_css` entry is also required
-because that hook normally registers the generated gallery stylesheet:
+Zensical does not invoke the gallery's MkDocs plugin hook, so run the standalone gallery
+command first. The explicit `extra_css` entry is also required because that hook normally
+registers the generated gallery stylesheet:
 
 ```console
 uv run e2s-gallery build       # GPU worker: execute stale examples and render
@@ -98,8 +101,19 @@ Zensical and MkDocs.
 
 ## MkDocs compatibility
 
-Existing MkDocs projects can continue to use the plugin configuration above. MkDocs invokes
-the gallery automatically during `mkdocs build` or `mkdocs serve`:
+MkDocs projects can instead put the settings directly under the gallery plugin. MkDocs then
+invokes the gallery automatically during `mkdocs build` or `mkdocs serve`:
+
+```yaml
+plugins:
+  - search
+  - earth2studio-gallery:
+      examples_dir: examples
+      output_dir: gallery
+      execute: stale
+      jobs: 1
+      backreferences: true
+```
 
 ```console
 uv run mkdocs build --strict
@@ -161,6 +175,10 @@ With `backreferences: true`, native Markdown/autorefs links such as
 ``:func:`~earth2studio.run.deterministic``` are indexed from narrative cells only. Put
 `<!-- e2sg-backreferences: earth2studio.run.deterministic -->` on the API page where its
 example cards should appear. Python imports and calls are never inferred.
+
+Generate API pages and their markers before running `e2s-gallery build` or
+`e2s-gallery render`. The command writes `.e2sgallery/backreferences.json` and replaces only
+its own managed card blocks, leaving each marker in place for subsequent builds.
 
 The repository contains a self-hosting documentation project under `docs/`. Its small
 numbered examples install the package from this Git repository, and the documentation

@@ -9,6 +9,7 @@ from pathlib import Path
 
 from PIL import Image, ImageOps
 
+from .cards import render_gallery_card
 from .config import GalleryConfig
 from .discovery import Example
 from .notebook import build_notebook
@@ -184,25 +185,7 @@ def render_indexes(
         for example in items:
             result = results.get(example.slug)
             thumb = config.output_dir / "_assets" / example.slug / "thumbnail.webp"
-            title = html.escape(example.title)
-            summary = html.escape(example.summary)
-            if thumb.exists():
-                media = (
-                    f'<img class="e2sg-card-image" src="_assets/{example.slug}/thumbnail.webp" '
-                    f'alt="Preview of {title}" loading="lazy">'
-                )
-            else:
-                media = (
-                    '<div class="e2sg-card-placeholder" aria-hidden="true">'
-                    '<span class="e2sg-card-placeholder-icon">'
-                    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-                    'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
-                    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>'
-                    '<path d="M14 2v6h6M10 13l-2 2 2 2M14 13l2 2-2 2"/>'
-                    "</svg></span></div>"
-                )
             link = example.relative.with_suffix("").as_posix() + "/"
-            meta = ""
             if result:
                 if result.stale:
                     label = "Stale"
@@ -216,11 +199,15 @@ def render_indexes(
             else:
                 label = "Missing"
                 status = "missing"
-            meta = f'<span class="e2sg-card-meta e2sg-card-meta--{status}">{label}</span>'
             main.append(
-                f'<a class="e2sg-gallery-card" href="{link}">'
-                f'{media}<span class="e2sg-card-body"><strong>{title}</strong>'
-                f'<span class="e2sg-card-summary">{summary}</span>{meta}</span></a>'
+                render_gallery_card(
+                    example,
+                    href=link,
+                    thumbnail_url=(
+                        f"_assets/{example.slug}/thumbnail.webp" if thumb.exists() else None
+                    ),
+                    status=(status, label),
+                )
             )
         main.append("</div>")
     config.output_dir.mkdir(parents=True, exist_ok=True)
