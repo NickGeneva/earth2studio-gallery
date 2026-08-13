@@ -11,6 +11,9 @@ from typing import Any
 class ExampleConfig:
     """Resolved execution settings for one example."""
 
+    environment: str = "isolated"
+    extras: tuple[str, ...] = ()
+    groups: tuple[str, ...] = ()
     python: str | None = None
     timeout: int = 7200
     extra_dependencies: tuple[str, ...] = ()
@@ -77,6 +80,9 @@ class GalleryConfig:
 
         default_data = data.get("runner", {})
         default = ExampleConfig(
+            environment=_environment_mode(default_data.get("environment", "isolated")),
+            extras=_string_tuple(default_data.get("extras", ()), "runner.extras"),
+            groups=_string_tuple(default_data.get("groups", ()), "runner.groups"),
             python=default_data.get("python"),
             timeout=int(default_data.get("timeout", 7200)),
             extra_dependencies=tuple(default_data.get("extra_dependencies", ())),
@@ -115,6 +121,9 @@ class GalleryConfig:
     def example_config(self, source: Path) -> ExampleConfig:
         """Merge inherited `_gallery.toml` files and a script sidecar."""
         merged: dict[str, Any] = {
+            "environment": self.default.environment,
+            "extras": list(self.default.extras),
+            "groups": list(self.default.groups),
             "python": self.default.python,
             "timeout": self.default.timeout,
             "extra_dependencies": list(self.default.extra_dependencies),
@@ -137,15 +146,18 @@ class GalleryConfig:
                 continue
             raw = tomllib.loads(candidate.read_text(encoding="utf-8"))
             values = raw.get("runner", raw)
-            for key in ("python", "timeout", "execute", "thumbnail"):
+            for key in ("environment", "python", "timeout", "execute", "thumbnail"):
                 if key in values:
                     merged[key] = values[key]
-            for key in ("extra_dependencies", "uv_args"):
+            for key in ("extras", "groups", "extra_dependencies", "uv_args"):
                 if key in values:
                     merged[key] = [*merged[key], *values[key]]
             if "env" in values:
                 merged["env"].update({str(k): str(v) for k, v in values["env"].items()})
         return ExampleConfig(
+            environment=_environment_mode(merged["environment"]),
+            extras=_string_tuple(merged["extras"], "runner.extras"),
+            groups=_string_tuple(merged["groups"], "runner.groups"),
             python=merged["python"],
             timeout=int(merged["timeout"]),
             extra_dependencies=tuple(merged["extra_dependencies"]),
@@ -161,3 +173,15 @@ class GalleryConfig:
         env.update(example.env)
         env.setdefault("MPLBACKEND", "Agg")
         return env
+
+
+def _environment_mode(value: object) -> str:
+    if not isinstance(value, str) or value not in {"isolated", "project"}:
+        raise ValueError("runner environment must be 'isolated' or 'project'")
+    return value
+
+
+def _string_tuple(value: object, name: str) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)) or not all(isinstance(item, str) for item in value):
+        raise ValueError(f"{name} must be an array of strings")
+    return tuple(dict.fromkeys(value))

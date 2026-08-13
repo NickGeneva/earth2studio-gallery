@@ -30,6 +30,14 @@ def test_inherits_runner_configuration(tmp_path: Path) -> None:
     example = tmp_path / "examples" / "gpu" / "run.py"
     example.parent.mkdir(parents=True)
     example.write_text(SCRIPT, encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text(
+        """[tool.earth2studio-gallery.runner]
+environment = "project"
+extras = ["feature"]
+groups = ["docs"]
+""",
+        encoding="utf-8",
+    )
     (tmp_path / "examples" / "_gallery.toml").write_text(
         '[runner]\ntimeout = 30\nextra_dependencies = ["base"]\n[runner.env]\nA = "1"\n',
         encoding="utf-8",
@@ -40,5 +48,8 @@ def test_inherits_runner_configuration(tmp_path: Path) -> None:
     )
     runner = GalleryConfig.load(tmp_path).example_config(example)
     assert runner.timeout == 30
+    assert runner.environment == "project"
+    assert runner.extras == ("feature",)
+    assert runner.groups == ("docs",)
     assert runner.extra_dependencies == ("base", "extra")
     assert runner.env == {"A": "1", "B": "2"}

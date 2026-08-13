@@ -14,7 +14,7 @@ from earth2studio_gallery.builder import GalleryBuilder
 from earth2studio_gallery.config import GalleryConfig
 from earth2studio_gallery.progress import ProgressEvent
 from earth2studio_gallery.render import _console_output, _event_console
-from earth2studio_gallery.runner import _script_metadata
+from earth2studio_gallery.runner import _script_environment, _script_metadata
 
 
 @pytest.mark.skipif(shutil.which("uv") is None, reason="uv is required for execution")
@@ -250,6 +250,10 @@ feature = []
 [dependency-groups]
 examples = []
 
+[tool.earth2studio-gallery.runner]
+environment = "project"
+groups = ["examples"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/demo_project"]
 """,
@@ -273,9 +277,6 @@ Reuse the locked project environment.
 #   "demo-project[feature] @ git+https://github.com/example/demo-project.git",
 # ]
 #
-# [tool.earth2studio-gallery]
-# environment = "project"
-# groups = ["examples"]
 # ///
 
 # %%
@@ -314,6 +315,22 @@ print(VALUE)
     assert any(event.stage == "lock" for event in progress)
     page = tmp_path / "docs" / "gallery" / "project_mode.md"
     assert "local checkout" in page.read_text(encoding="utf-8")
+
+    isolated = tmp_path / "examples" / "isolated.py"
+    isolated.write_text(
+        """# /// script
+# dependencies = []
+# [tool.earth2studio-gallery]
+# environment = "isolated"
+# ///
+""",
+        encoding="utf-8",
+    )
+    isolated_config = GalleryConfig.load(tmp_path).example_config(isolated)
+    resolved = _script_environment(_script_metadata(isolated, tmp_path), tmp_path, isolated_config)
+    assert resolved.mode == "isolated"
+    assert resolved.extras == ()
+    assert resolved.groups == ()
 
 
 def test_console_output_cleans_control_codes_and_only_styles_failures() -> None:

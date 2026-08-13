@@ -34,6 +34,9 @@ uv_args = ["--no-progress"]
 | `execute` | `stale`, `always`, or `never` execution policy |
 | `jobs` | Concurrent examples; keep at `1` for a single GPU |
 | `timeout` | Maximum seconds for each example |
+| `environment` | Execution mode for examples: `isolated` (default) or `project` |
+| `extras` | Project extras expected in an already-synchronized project environment |
+| `groups` | Dependency groups expected in an already-synchronized project environment |
 | `python` | UV Python request for examples without their own constraint |
 | `extra_dependencies` | Dependencies layered onto inherited example metadata |
 | `uv_args` | Additional arguments passed to `uv run` |
@@ -69,14 +72,24 @@ PEP 723 metadata remains the primary dependency declaration for each example. Di
 and sidecar configuration is intended for infrastructure details such as GPU assignment,
 cache locations, and timeouts.
 
-## Per-example execution environment
+## Project execution environments
 
 Examples use an isolated PEP 723 environment by default. This lets examples select different
 Python versions and incompatible dependency sets without changing the documentation project's
 environment.
 
-An example can instead reuse the repository's existing UV project environment by adding an
-Earth2Studio Gallery table to its inline metadata:
+To reuse the repository's existing UV project environment for every example, set the default in
+the parent `pyproject.toml`:
+
+```toml
+[tool.earth2studio-gallery.runner]
+environment = "project"
+extras = ["data", "stormcast-conus"]
+groups = ["docs"]
+```
+
+The same `[runner]` keys work in `gallery.toml`. An individual example can override the project
+default—or opt into project mode when the default is isolated—using its inline metadata:
 
 ```python
 # /// script
@@ -87,7 +100,6 @@ Earth2Studio Gallery table to its inline metadata:
 #
 # [tool.earth2studio-gallery]
 # environment = "project"
-# groups = ["docs"]
 # ///
 ```
 
@@ -97,9 +109,9 @@ runs the generated harness with `--no-sync`. Because the harness is passed to `p
 of to `uv run --script`, UV does not create or resolve a PEP 723 environment. The project must
 already be synchronized with every dependency required by the example.
 
-Extras on the dependency whose normalized name matches `[project].name` are inferred
-automatically. In the example above, those are `data` and `stormcast-conus`. Additional project
-extras and dependency groups can be declared explicitly:
+Extras on the dependency whose normalized name matches `[project].name` are inferred for each
+example. In the example above, those are `data` and `stormcast-conus`. Additional project extras
+and dependency groups can be declared in the parent runner configuration or inline:
 
 ```python
 # [tool.earth2studio-gallery]
@@ -118,9 +130,10 @@ uv sync --locked --extra data --extra stormcast-conus --group docs
 uv run e2s-gallery build 04_nowcasting/01_stormcast_example.py
 ```
 
-Use `environment = "isolated"`, or omit the table, to retain the standard isolated behavior.
-The `python` and `extra_dependencies` runner settings apply only to isolated environments;
-`uv_args`, environment variables, and timeouts apply to both modes.
+Use inline `environment = "isolated"` to exempt one example from a project-level default. Omit
+both settings to retain the standard isolated behavior. The `python` and `extra_dependencies`
+runner settings apply only to isolated environments; `uv_args`, environment variables, and
+timeouts apply to both modes.
 
 Original captured files remain unchanged in `.e2sgallery/`. Optimization only affects
 the assets copied into the Zensical or MkDocs site. SVG files and animated GIFs are preserved in

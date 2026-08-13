@@ -51,13 +51,13 @@ def fingerprint(example: Example, config: ExampleConfig, project_root: Path | No
     if project_root is not None:
         metadata = _script_metadata(example.source, project_root)
         try:
-            environment = _script_environment(metadata, project_root)
+            environment = _script_environment(metadata, project_root, config)
         except ValueError:
             environment = _ScriptEnvironment()
         if environment.mode == "project":
             lockfile = project_root / "uv.lock"
             digest.update(lockfile.read_bytes() if lockfile.exists() else b"missing-uv-lock")
-    digest.update(b"earth2studio-gallery-runner-v5")
+    digest.update(b"earth2studio-gallery-runner-v6")
     return digest.hexdigest()
 
 
@@ -73,9 +73,11 @@ def run_example(
     metadata = _script_metadata(example.source, gallery.root)
     metadata_error: str | None = None
     try:
-        script_environment = _script_environment(metadata, gallery.root)
+        script_environment = _script_environment(metadata, gallery.root, run_config)
     except ValueError as exc:
-        script_environment = _ScriptEnvironment()
+        script_environment = _ScriptEnvironment(
+            run_config.environment, run_config.extras, run_config.groups
+        )
         metadata_error = str(exc)
     report(progress, "cache", "checking source and runner fingerprint", name)
     key = fingerprint(example, run_config, gallery.root)
@@ -404,7 +406,9 @@ def _use_local_project(metadata: str, source: Path, project_root: Path | None) -
     return git_dependency.sub(replace, metadata)
 
 
-def _script_environment(metadata: str, project_root: Path) -> _ScriptEnvironment:
+def _script_environment(
+    metadata: str, project_root: Path, config: ExampleConfig
+) -> _ScriptEnvironment:
     parsed = _metadata_mapping(metadata)
     tool = parsed.get("tool", {})
     if not isinstance(tool, dict):
@@ -412,14 +416,15 @@ def _script_environment(metadata: str, project_root: Path) -> _ScriptEnvironment
     settings = tool.get("earth2studio-gallery", {})
     if not isinstance(settings, dict):
         raise ValueError("[tool.earth2studio-gallery] must be a table")
-    mode = settings.get("environment", "isolated")
+    mode = settings.get("environment", config.environment)
     if not isinstance(mode, str) or mode not in {"isolated", "project"}:
         raise ValueError("example environment must be 'isolated' or 'project'")
-    extras = _string_list(settings.get("extras", []), "extras")
-    groups = _string_list(settings.get("groups", []), "groups")
+    extras = _unique((*config.extras, *_string_list(settings.get("extras", []), "extras")))
+    groups = _unique((*config.groups, *_string_list(settings.get("groups", []), "groups")))
     if mode == "project":
         extras = _unique((*_project_extras(parsed, project_root), *extras))
-    return _ScriptEnvironment(mode, extras, groups)
+        return _ScriptEnvironment(mode, extras, groups)
+    return _ScriptEnvironment(mode)
 
 
 def _project_extras(metadata: dict[str, object], project_root: Path) -> tuple[str, ...]:

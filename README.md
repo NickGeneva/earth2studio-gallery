@@ -144,8 +144,16 @@ An example's PEP 723 block is its dependency environment:
 # ///
 ```
 
-Reuse the current repository environment for an example that should run against the local
-checkout and `uv.lock`:
+Reuse the current repository environment for every example by configuring the parent project:
+
+```toml
+[tool.earth2studio-gallery.runner]
+environment = "project"
+extras = ["dlwp"]
+groups = ["docs"]
+```
+
+Alternatively, opt in or override the default for one example inside its PEP 723 block:
 
 ```python
 # /// script
@@ -163,7 +171,8 @@ checkout and `uv.lock`:
 Project mode verifies the local lockfile and executes with `uv run --project ... --no-sync`.
 It infers `dlwp` from the local project's dependency declaration, validates explicitly listed
 extras and groups, and never mutates the shared environment. Isolated execution remains the
-default. See the [configuration guide](docs/configuration.md#per-example-execution-environment).
+default unless the parent runner configuration changes it. See the
+[configuration guide](docs/configuration.md#project-execution-environments).
 
 Optional `_gallery.toml` files are inherited down the examples tree. A
 `name.gallery.toml` file applies only to `name.py`:
