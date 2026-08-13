@@ -20,9 +20,10 @@ snapshot explicitly notes that a PEP 723 script environment is resolved independ
 the repository lockfile. It is also embedded in the downloadable notebook metadata and the
 run's `manifest.json`.
 
-Configured variables and common CUDA, PyTorch, NVIDIA, OpenMP, and MKL variables are recorded.
-Values whose names indicate tokens, keys, passwords, credentials, authentication, or secrets
-are replaced with `<redacted>`.
+Environment variables are available to UV and the example process at runtime, including values
+configured through `runner.env`, but they are deliberately excluded from retained provenance.
+Neither their names nor their values are written to the environment snapshot, manifest, or
+downloadable notebook metadata.
 
 Use `build` to update all stale results or a selected subset:
 

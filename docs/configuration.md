@@ -51,6 +51,10 @@ uv_args = ["--no-progress"]
 | `collect_telemetry` | Add an execution profile with resource and hardware telemetry |
 | `telemetry_interval` | Resource sampling interval in seconds (minimum `0.25`) |
 
+Values configured through `runner.env` are passed to UV and the example process but are never
+included in retained provenance, manifests, generated Markdown, or downloadable notebook
+metadata.
+
 For Zensical and standalone CLI builds, configure these values under
 `[tool.earth2studio-gallery]` or `[gallery]`. MkDocs builds may set the same values under the
 `earth2studio-gallery` plugin. Because Zensical does not execute that plugin hook, values that

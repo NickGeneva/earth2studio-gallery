@@ -179,10 +179,8 @@ def run_example(
     environment = _environment_provenance(
         environment_path,
         gallery,
-        run_config,
         metadata,
         command,
-        process_environment,
         harness_path,
         script_environment,
     )
@@ -470,16 +468,33 @@ def _unique(values) -> tuple[str, ...]:
 
 
 def _read_result(path: Path) -> RunResult:
-    return RunResult(**json.loads(path.read_text(encoding="utf-8")))
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    environment = payload.get("environment")
+    if isinstance(environment, dict) and "environment_variables" in environment:
+        environment.pop("environment_variables")
+        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    _scrub_environment_snapshot(path.with_name("environment.json"))
+    return RunResult(**payload)
+
+
+def _scrub_environment_snapshot(path: Path) -> None:
+    if not path.exists():
+        return
+    try:
+        environment = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    if not isinstance(environment, dict) or "environment_variables" not in environment:
+        return
+    environment.pop("environment_variables")
+    path.write_text(json.dumps(environment, indent=2), encoding="utf-8")
 
 
 def _environment_provenance(
     path: Path,
     gallery: GalleryConfig,
-    config: ExampleConfig,
     metadata: str,
     command: list[str],
-    process_environment: dict[str, str],
     harness_path: Path,
     script_environment: _ScriptEnvironment,
 ) -> dict[str, object]:
@@ -501,9 +516,6 @@ def _environment_provenance(
         "groups": list(script_environment.groups),
     }
     captured["script"] = _metadata_mapping(metadata)
-    captured["environment_variables"] = _recorded_environment_variables(
-        process_environment, config.env
-    )
     captured["repository"] = _repository_information(gallery.root)
     captured["project_lock"] = _lock_information(
         gallery.root / "uv.lock",
@@ -532,24 +544,6 @@ def _metadata_mapping(metadata: str) -> dict[str, object]:
         return tomllib.loads(content)
     except tomllib.TOMLDecodeError:
         return {}
-
-
-def _recorded_environment_variables(
-    environment: dict[str, str], configured: dict[str, str]
-) -> dict[str, str]:
-    prefixes = ("CUDA_", "TORCH_", "NVIDIA_", "OMP_", "MKL_")
-    names = set(configured)
-    names.update(name for name in environment if name.startswith(prefixes))
-    result: dict[str, str] = {}
-    for name in sorted(names):
-        if name not in environment:
-            continue
-        result[name] = "<redacted>" if _is_sensitive_name(name) else str(environment[name])
-    return result
-
-
-def _is_sensitive_name(name: str) -> bool:
-    return bool(re.search(r"(?:TOKEN|KEY|SECRET|PASSWORD|CREDENTIAL|AUTH)", name, re.I))
 
 
 def _sanitize_command(command: list[str], harness_path: Path) -> list[str]:

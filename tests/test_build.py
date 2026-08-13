@@ -51,8 +51,11 @@ An integration test using [`Thing`][package.api.Thing] and
 # dependencies = ["pillow>=11"]
 # ///
 # %% tags=["e2sg-profile:inference"]
+import os
 import sys
 
+assert os.environ["TORCH_ALLOW_TF32_CUBLAS_OVERRIDE"] == "1"
+assert os.environ["HF_TOKEN"] == "not-a-real-secret"
 print("cell output")
 print("progress written to stderr", file=sys.stderr)
 from PIL import Image
@@ -90,10 +93,7 @@ Image.new("RGB", (20, 10), "red").save("result.png")
         package["name"].lower(): package["version"] for package in result.environment["packages"]
     }
     assert "pillow" in packages
-    assert result.environment["environment_variables"] == {
-        "HF_TOKEN": "<redacted>",
-        "TORCH_ALLOW_TF32_CUBLAS_OVERRIDE": "1",
-    }
+    assert "environment_variables" not in result.environment
     assert result.environment["project_lock"]["used_by_script_environment"] is False
     environment_path = config.cache_dir / "runs" / "basics-plot" / "environment.json"
     assert json.loads(environment_path.read_text(encoding="utf-8")) == result.environment
@@ -124,8 +124,24 @@ Image.new("RGB", (20, 10), "red").save("result.png")
     assert "--e2sg-download-button-color: #123456" in gallery_css
     assert "--e2sg-output-max-height: 321px" in gallery_css
     assert "background: var(--e2sg-download-button-color" in gallery_css
+
+    manifest_path = config.cache_dir / "runs" / "basics-plot" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["environment"]["environment_variables"] = {"LEGACY_SECRET": "unsafe"}
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    environment = json.loads(environment_path.read_text(encoding="utf-8"))
+    environment["environment_variables"] = {"LEGACY_SECRET": "unsafe"}
+    environment_path.write_text(json.dumps(environment), encoding="utf-8")
+
     second = GalleryBuilder(config).build()
-    assert next(item for item in second.results.values() if item).cached
+    second_result = next(item for item in second.results.values() if item)
+    assert second_result.cached
+    assert "environment_variables" not in second_result.environment
+    assert (
+        "environment_variables"
+        not in json.loads(manifest_path.read_text(encoding="utf-8"))["environment"]
+    )
+    assert "environment_variables" not in json.loads(environment_path.read_text(encoding="utf-8"))
     gallery_path = tmp_path / "docs" / "gallery" / "index.md"
     gallery_modified = gallery_path.stat().st_mtime_ns
     retained = GalleryBuilder(config).build(execute="never")
@@ -141,6 +157,7 @@ Image.new("RGB", (20, 10), "red").save("result.png")
     notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
     notebook_environment = notebook["metadata"]["earth2studio_gallery"]["environment"]
     assert notebook_environment["packages"] == result.environment["packages"]
+    assert "environment_variables" not in notebook_environment
     code_cells = [cell for cell in notebook["cells"] if cell["cell_type"] == "code"]
     assert any(output.get("name") == "stdout" for output in code_cells[-1]["outputs"])
     assert any("image/png" in output.get("data", {}) for output in code_cells[-1]["outputs"])
