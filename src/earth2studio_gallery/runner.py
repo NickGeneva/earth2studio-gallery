@@ -35,11 +35,29 @@ class RunResult:
     stale: bool = False
 
 
-def fingerprint(example: Example, config: ExampleConfig) -> str:
+@dataclass(frozen=True, slots=True)
+class _ScriptEnvironment:
+    """Execution environment selected by an example's inline metadata."""
+
+    mode: str = "isolated"
+    extras: tuple[str, ...] = ()
+    groups: tuple[str, ...] = ()
+
+
+def fingerprint(example: Example, config: ExampleConfig, project_root: Path | None = None) -> str:
     digest = hashlib.blake2b(digest_size=20)
     digest.update(example.source.read_bytes())
     digest.update(json.dumps(asdict(config), sort_keys=True).encode())
-    digest.update(b"earth2studio-gallery-runner-v4")
+    if project_root is not None:
+        metadata = _script_metadata(example.source, project_root)
+        try:
+            environment = _script_environment(metadata, project_root)
+        except ValueError:
+            environment = _ScriptEnvironment()
+        if environment.mode == "project":
+            lockfile = project_root / "uv.lock"
+            digest.update(lockfile.read_bytes() if lockfile.exists() else b"missing-uv-lock")
+    digest.update(b"earth2studio-gallery-runner-v5")
     return digest.hexdigest()
 
 
@@ -52,8 +70,15 @@ def run_example(
 ) -> RunResult:
     name = example.relative.as_posix()
     run_config = gallery.example_config(example.source)
+    metadata = _script_metadata(example.source, gallery.root)
+    metadata_error: str | None = None
+    try:
+        script_environment = _script_environment(metadata, gallery.root)
+    except ValueError as exc:
+        script_environment = _ScriptEnvironment()
+        metadata_error = str(exc)
     report(progress, "cache", "checking source and runner fingerprint", name)
-    key = fingerprint(example, run_config)
+    key = fingerprint(example, run_config, gallery.root)
     run_dir = gallery.cache_dir / "runs" / example.slug
     manifest_path = run_dir / "manifest.json"
     if not force and manifest_path.exists():
@@ -79,8 +104,12 @@ def run_example(
     event_path = run_dir / "events.json"
     environment_path = run_dir / "environment.json"
     harness_path = run_dir / "harness.py"
-    metadata = _script_metadata(example.source, gallery.root)
-    report(progress, "prepare", "creating isolated execution harness", name)
+    report(
+        progress,
+        "prepare",
+        f"creating {script_environment.mode} execution harness",
+        name,
+    )
     harness_path.write_text(
         metadata
         + "\n"
@@ -89,43 +118,58 @@ def run_example(
         .replace("__ENVIRONMENT__", repr(str(environment_path))),
         encoding="utf-8",
     )
-    command = ["uv", "run", *run_config.uv_args]
-    if run_config.python:
-        command += ["--python", run_config.python]
-    for dependency in run_config.extra_dependencies:
-        command += ["--with", dependency]
-    command += ["--script", str(harness_path)]
     process_environment = gallery.environment(run_config)
+    command = _execution_command(harness_path, gallery.root, run_config, script_environment)
+    preparation_error = metadata_error
+    if script_environment.mode == "project" and preparation_error is None:
+        details = _project_environment_details(script_environment)
+        report(progress, "environment", f"reusing project environment{details}", name)
+        preparation_error = _validate_project_environment(
+            gallery.root, script_environment, process_environment
+        )
+        if preparation_error is None:
+            report(progress, "lock", "verified local uv.lock", name)
     started = time.monotonic()
     sampler = TelemetrySampler(gallery.collect_telemetry, gallery.telemetry_interval)
     error: str | None = None
-    report(
-        progress,
-        "execute",
-        f"UV resolving environment and running (timeout {run_config.timeout}s)",
-        name,
-    )
-    try:
-        process = subprocess.Popen(
-            command,
-            cwd=work_dir,
-            env=process_environment,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
+    if preparation_error is not None:
+        returncode, error = 2, preparation_error
+    else:
+        action = (
+            "reusing project environment without syncing"
+            if script_environment.mode == "project"
+            else "UV resolving isolated environment and running"
         )
-        sampler.sample(process, started, force=True)
-        stdout, stderr, timed_out = _communicate_with_heartbeats(
-            process, run_config.timeout, started, progress, name, sampler
+        report(
+            progress,
+            "execute",
+            f"{action} (timeout {run_config.timeout}s)",
+            name,
         )
-        sampler.sample(process, started, force=True)
-        returncode = 124 if timed_out else process.returncode
-        if timed_out:
-            error = f"example timed out after {run_config.timeout}s\n{(stderr or stdout)[-8000:]}"
-        elif returncode:
-            error = (stderr or stdout)[-8000:]
-    except FileNotFoundError:
-        returncode, error = 127, "uv was not found on PATH"
+        try:
+            process = subprocess.Popen(
+                command,
+                cwd=work_dir,
+                env=process_environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            sampler.sample(process, started, force=True)
+            stdout, stderr, timed_out = _communicate_with_heartbeats(
+                process, run_config.timeout, started, progress, name, sampler
+            )
+            sampler.sample(process, started, force=True)
+            returncode = 124 if timed_out else process.returncode
+            if timed_out:
+                error = (
+                    f"example timed out after {run_config.timeout}s\n"
+                    f"{(stderr or stdout)[-8000:]}"
+                )
+            elif returncode:
+                error = (stderr or stdout)[-8000:]
+        except FileNotFoundError:
+            returncode, error = 127, "uv was not found on PATH"
     duration = time.monotonic() - started
     if returncode:
         report(progress, "failed", f"execution exited {returncode} after {duration:.1f}s", name)
@@ -140,6 +184,7 @@ def run_example(
         command,
         process_environment,
         harness_path,
+        script_environment,
     )
     environment_path.write_text(json.dumps(environment, indent=2), encoding="utf-8")
     packages = environment.get("packages", [])
@@ -194,6 +239,84 @@ def _communicate_with_heartbeats(
                 next_heartbeat += 30.0
 
 
+def _execution_command(
+    harness: Path,
+    project_root: Path,
+    config: ExampleConfig,
+    environment: _ScriptEnvironment,
+) -> list[str]:
+    if environment.mode == "project":
+        return [
+            "uv",
+            "run",
+            *config.uv_args,
+            "--project",
+            str(project_root),
+            "--no-sync",
+            "--",
+            "python",
+            str(harness),
+        ]
+    command = ["uv", "run", *config.uv_args]
+    if config.python:
+        command += ["--python", config.python]
+    for dependency in config.extra_dependencies:
+        command += ["--with", dependency]
+    return [*command, "--script", str(harness)]
+
+
+def _project_environment_details(environment: _ScriptEnvironment) -> str:
+    selections = []
+    if environment.extras:
+        selections.append(f"extras: {', '.join(environment.extras)}")
+    if environment.groups:
+        selections.append(f"groups: {', '.join(environment.groups)}")
+    return f" ({'; '.join(selections)})" if selections else ""
+
+
+def _validate_project_environment(
+    root: Path, environment: _ScriptEnvironment, process_environment: dict[str, str]
+) -> str | None:
+    pyproject = root / "pyproject.toml"
+    lockfile = root / "uv.lock"
+    if not pyproject.exists():
+        return "project environment mode requires pyproject.toml at the gallery root"
+    if not lockfile.exists():
+        return "project environment mode requires uv.lock at the gallery root"
+    try:
+        project = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        return f"could not read project metadata: {exc}"
+    optional = project.get("project", {}).get("optional-dependencies", {})
+    dependency_groups = project.get("dependency-groups", {})
+    available_extras = set(optional) if isinstance(optional, dict) else set()
+    available_groups = set(dependency_groups) if isinstance(dependency_groups, dict) else set()
+    unknown_extras = sorted(set(environment.extras) - available_extras)
+    unknown_groups = sorted(set(environment.groups) - available_groups)
+    if unknown_extras:
+        return f"unknown project extra(s): {', '.join(unknown_extras)}"
+    if unknown_groups:
+        return f"unknown project dependency group(s): {', '.join(unknown_groups)}"
+    try:
+        check = subprocess.run(
+            ["uv", "lock", "--check"],
+            cwd=root,
+            env=process_environment,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+    except FileNotFoundError:
+        return "uv was not found on PATH"
+    except subprocess.TimeoutExpired:
+        return "timed out while checking the project lockfile"
+    if check.returncode:
+        reason = (check.stderr or check.stdout).strip()
+        return f"project lockfile check failed: {reason or 'uv lock --check exited nonzero'}"
+    return None
+
+
 def cached_result(example: Example, gallery: GalleryConfig) -> RunResult | None:
     """Return a successful retained run without executing the example."""
     manifest = gallery.cache_dir / "runs" / example.slug / "manifest.json"
@@ -204,7 +327,7 @@ def cached_result(example: Example, gallery: GalleryConfig) -> RunResult | None:
         return None
     result.cached = True
     result.stale = result.fingerprint != fingerprint(
-        example, gallery.example_config(example.source)
+        example, gallery.example_config(example.source), gallery.root
     )
     return result
 
@@ -266,15 +389,84 @@ def _use_local_project(metadata: str, source: Path, project_root: Path | None) -
     pyproject = project_root / "pyproject.toml"
     if not pyproject.exists():
         return metadata
-    data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-    project_name = data.get("project", {}).get("name")
-    if not isinstance(project_name, str):
+    project_name = _project_name(project_root)
+    if project_name is None:
         return metadata
     git_dependency = re.compile(
-        rf'(?P<quote>["\']){re.escape(project_name)}\s*@\s*git\+[^"\']+(?P=quote)'
+        r'(?P<quote>["\'])(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)'
+        r'(?P<extras>\[[^"\']+\])?\s*@\s*git\+[^"\']+(?P=quote)'
     )
-    local_dependency = json.dumps(f"{project_name} @ {project_root.as_uri()}")
-    return git_dependency.sub(local_dependency, metadata)
+
+    def replace(match: re.Match[str]) -> str:
+        if _normalized_name(match.group("name")) != _normalized_name(project_name):
+            return match.group(0)
+        extras = match.group("extras") or ""
+        return json.dumps(f"{match.group('name')}{extras} @ {project_root.as_uri()}")
+
+    return git_dependency.sub(replace, metadata)
+
+
+def _script_environment(metadata: str, project_root: Path) -> _ScriptEnvironment:
+    parsed = _metadata_mapping(metadata)
+    tool = parsed.get("tool", {})
+    if not isinstance(tool, dict):
+        raise ValueError("inline script metadata [tool] must be a table")
+    settings = tool.get("earth2studio-gallery", {})
+    if not isinstance(settings, dict):
+        raise ValueError("[tool.earth2studio-gallery] must be a table")
+    mode = settings.get("environment", "isolated")
+    if not isinstance(mode, str) or mode not in {"isolated", "project"}:
+        raise ValueError("example environment must be 'isolated' or 'project'")
+    extras = _string_list(settings.get("extras", []), "extras")
+    groups = _string_list(settings.get("groups", []), "groups")
+    if mode == "project":
+        extras = _unique((*_project_extras(parsed, project_root), *extras))
+    return _ScriptEnvironment(mode, extras, groups)
+
+
+def _project_extras(metadata: dict[str, object], project_root: Path) -> tuple[str, ...]:
+    project_name = _project_name(project_root)
+    dependencies = metadata.get("dependencies", [])
+    if project_name is None or not isinstance(dependencies, list):
+        return ()
+    extras: list[str] = []
+    requirement = re.compile(
+        r"^\s*(?P<name>[A-Za-z0-9][A-Za-z0-9._-]*)" r"(?:\[(?P<extras>[^]]+)\])?"
+    )
+    for dependency in dependencies:
+        if not isinstance(dependency, str) or not (match := requirement.match(dependency)):
+            continue
+        if _normalized_name(match.group("name")) != _normalized_name(project_name):
+            continue
+        if declared := match.group("extras"):
+            extras.extend(item.strip() for item in declared.split(",") if item.strip())
+    return _unique(extras)
+
+
+def _project_name(root: Path) -> str | None:
+    pyproject = root / "pyproject.toml"
+    if not pyproject.exists():
+        return None
+    try:
+        data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
+    name = data.get("project", {}).get("name")
+    return name if isinstance(name, str) else None
+
+
+def _normalized_name(value: str) -> str:
+    return re.sub(r"[-_.]+", "-", value).lower()
+
+
+def _string_list(value: object, name: str) -> tuple[str, ...]:
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError(f"project environment {name} must be an array of strings")
+    return _unique(value)
+
+
+def _unique(values) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(values))
 
 
 def _read_result(path: Path) -> RunResult:
@@ -289,6 +481,7 @@ def _environment_provenance(
     command: list[str],
     process_environment: dict[str, str],
     harness_path: Path,
+    script_environment: _ScriptEnvironment,
 ) -> dict[str, object]:
     captured: dict[str, object] = {}
     if path.exists():
@@ -302,12 +495,20 @@ def _environment_provenance(
         "version": _uv_version(),
         "command": _sanitize_command(command, harness_path),
     }
+    captured["execution"] = {
+        "environment": script_environment.mode,
+        "extras": list(script_environment.extras),
+        "groups": list(script_environment.groups),
+    }
     captured["script"] = _metadata_mapping(metadata)
     captured["environment_variables"] = _recorded_environment_variables(
         process_environment, config.env
     )
     captured["repository"] = _repository_information(gallery.root)
-    captured["project_lock"] = _lock_information(gallery.root / "uv.lock")
+    captured["project_lock"] = _lock_information(
+        gallery.root / "uv.lock",
+        used_by_script_environment=script_environment.mode == "project",
+    )
     return captured
 
 
@@ -416,13 +617,16 @@ def _repository_information(root: Path) -> dict[str, object]:
     }
 
 
-def _lock_information(path: Path) -> dict[str, object]:
+def _lock_information(path: Path, *, used_by_script_environment: bool = False) -> dict[str, object]:
     if not path.exists():
-        return {"present": False, "used_by_script_environment": False}
+        return {
+            "present": False,
+            "used_by_script_environment": used_by_script_environment,
+        }
     return {
         "present": True,
         "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-        "used_by_script_environment": False,
+        "used_by_script_environment": used_by_script_environment,
     }
 
 

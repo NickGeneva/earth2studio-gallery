@@ -65,6 +65,59 @@ PEP 723 metadata remains the primary dependency declaration for each example. Di
 and sidecar configuration is intended for infrastructure details such as GPU assignment,
 cache locations, and timeouts.
 
+## Per-example execution environment
+
+Examples use an isolated PEP 723 environment by default. This lets examples select different
+Python versions and incompatible dependency sets without changing the documentation project's
+environment.
+
+An example can instead reuse the repository's existing UV project environment by adding an
+Earth2Studio Gallery table to its inline metadata:
+
+```python
+# /// script
+# dependencies = [
+#   "earth2studio[data,stormcast-conus] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+# ]
+#
+# [tool.earth2studio-gallery]
+# environment = "project"
+# groups = ["docs"]
+# ///
+```
+
+`environment = "project"` requires `pyproject.toml` and `uv.lock` at the gallery root. The
+gallery verifies `uv lock --check`, finds the project environment with `uv run --project`, and
+runs the generated harness with `--no-sync`. Because the harness is passed to `python` instead
+of to `uv run --script`, UV does not create or resolve a PEP 723 environment. The project must
+already be synchronized with every dependency required by the example.
+
+Extras on the dependency whose normalized name matches `[project].name` are inferred
+automatically. In the example above, those are `data` and `stormcast-conus`. Additional project
+extras and dependency groups can be declared explicitly:
+
+```python
+# [tool.earth2studio-gallery]
+# environment = "project"
+# extras = ["perturbation"]
+# groups = ["docs"]
+```
+
+The gallery validates these names against `[project.optional-dependencies]` and
+`[dependency-groups]`, records them in `environment.json` and notebook metadata, and includes
+the local lockfile in the execution fingerprint. It does not install the selections. Prepare
+the shared environment before building, for example:
+
+```console
+uv sync --locked --extra data --extra stormcast-conus --group docs
+uv run e2s-gallery build 04_nowcasting/01_stormcast_example.py
+```
+
+Use `environment = "isolated"`, or omit the table, to retain the standard isolated behavior.
+The `python` and `extra_dependencies` runner settings apply only to isolated environments;
+`uv_args`, environment variables, and timeouts apply to both modes.
+
 Original captured files remain unchanged in `.e2sgallery/`. Optimization only affects
 the assets copied into the Zensical or MkDocs site. SVG files and animated GIFs are preserved in
 their original formats.

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 from dataclasses import replace
 from pathlib import Path
 
@@ -204,7 +205,7 @@ def test_self_hosted_git_dependency_uses_current_checkout(tmp_path: Path) -> Non
     example.write_text(
         """# /// script
 # dependencies = [
-#   "demo-gallery @ git+https://github.com/example/demo-gallery.git",
+#   "demo-gallery[feature] @ git+https://github.com/example/demo-gallery.git",
 # ]
 # ///
 """,
@@ -212,7 +213,90 @@ def test_self_hosted_git_dependency_uses_current_checkout(tmp_path: Path) -> Non
     )
     metadata = _script_metadata(example, tmp_path)
     assert "git+https" not in metadata
-    assert f"demo-gallery @ {tmp_path.as_uri()}" in metadata
+    assert f"demo-gallery[feature] @ {tmp_path.as_uri()}" in metadata
+
+
+@pytest.mark.skipif(shutil.which("uv") is None, reason="uv is required for execution")
+def test_project_environment_reuses_locked_local_checkout(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        """[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "demo-project"
+version = "0.1.0"
+
+[project.optional-dependencies]
+feature = []
+
+[dependency-groups]
+examples = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/demo_project"]
+""",
+        encoding="utf-8",
+    )
+    package = tmp_path / "src" / "demo_project"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text('VALUE = "local checkout"\n', encoding="utf-8")
+    example = tmp_path / "examples" / "project_mode.py"
+    example.parent.mkdir()
+    example.write_text(
+        '''# %%
+"""Project Mode
+============
+
+Reuse the locked project environment.
+"""
+
+# /// script
+# dependencies = [
+#   "demo-project[feature] @ git+https://github.com/example/demo-project.git",
+# ]
+#
+# [tool.earth2studio-gallery]
+# environment = "project"
+# groups = ["examples"]
+# ///
+
+# %%
+from demo_project import VALUE
+
+print(VALUE)
+''',
+        encoding="utf-8",
+    )
+    subprocess.run(
+        ["uv", "sync", "--project", str(tmp_path), "--no-default-groups"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    progress: list[ProgressEvent] = []
+
+    report = GalleryBuilder(GalleryConfig.load(tmp_path), progress=progress.append).build()
+    result = report.results["project_mode"]
+
+    assert result is not None
+    assert result.returncode == 0
+    assert result.environment["execution"] == {
+        "environment": "project",
+        "extras": ["feature"],
+        "groups": ["examples"],
+    }
+    assert result.environment["project_lock"]["used_by_script_environment"] is True
+    command = result.environment["uv"]["command"]
+    assert "--project" in command
+    assert "--no-sync" in command
+    assert "--script" not in command
+    assert result.environment["python"]["uv_environment"] == ".venv"
+    packages = {package["name"]: package for package in result.environment["packages"]}
+    assert packages["demo-project"]["source"] == {"type": "local", "editable": True}
+    assert any(event.stage == "lock" for event in progress)
+    page = tmp_path / "docs" / "gallery" / "project_mode.md"
+    assert "local checkout" in page.read_text(encoding="utf-8")
 
 
 def test_console_output_cleans_control_codes_and_only_styles_failures() -> None:

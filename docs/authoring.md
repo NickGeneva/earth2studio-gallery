@@ -43,6 +43,21 @@ The opening docstring becomes the title and introduction. Comment-only cells bec
 Markdown, code cells become highlighted Python, printed text becomes an output block,
 and created images appear after the cell that produced them.
 
+The PEP 723 block normally creates an isolated UV script environment. To run a particular
+example in the repository's already-synchronized project environment, add
+`[tool.earth2studio-gallery]` inside the same block:
+
+```python
+# [tool.earth2studio-gallery]
+# environment = "project"
+# groups = ["docs"]
+```
+
+Project mode verifies the repository's `uv.lock` and runs without syncing. Project extras are
+inferred from a dependency such as `earth2studio[data,stormcast-conus]`; `extras` can also be
+listed explicitly. See [Per-example execution environment](configuration.md#per-example-execution-environment)
+for the complete behavior and preparation command.
+
 ## Python API cross-references
 
 Sphinx-style Python roles in narrative cells are converted to

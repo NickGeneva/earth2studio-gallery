@@ -81,9 +81,10 @@ uv run e2s-gallery build 01_getting_started/01_minimal_image.py
 uv run e2s-gallery build "02_plotting/*sine*"
 ```
 
-UV caches the environment described by each script, while Earth2Studio Gallery caches
-the successful run artifacts. Repeating either command avoids unnecessary setup and
-execution.
+UV caches isolated environments described by scripts, while Earth2Studio Gallery caches
+successful run artifacts. Examples that opt into project execution reuse the repository's
+existing locked environment without syncing it. Repeating either command avoids unnecessary
+setup and execution.
 
 ## Understand result status
 

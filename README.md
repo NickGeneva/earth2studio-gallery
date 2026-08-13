@@ -8,17 +8,18 @@ executable Zensical or MkDocs Material gallery. It is deliberately independent o
 Sphinx. Zensical is the default documentation backend; the MkDocs plugin remains
 available for existing projects.
 
-Each example is executed with `uv run --script`, so its
+By default, each example is executed with `uv run --script`, so its
 [PEP 723 inline metadata](https://docs.astral.sh/uv/guides/scripts/) defines a
-small, cached environment of its own. This is a good fit for GPU examples whose
-models and optional dependencies differ substantially.
+small, cached environment of its own. An example can instead opt into the repository's
+locked project environment and run without another dependency sync or build.
 
 ## Highlights
 
 - Sphinx-Gallery-style `# %%` scripts and narrative docstrings/comments
 - Sphinx-style Python API roles linked through mkdocstrings/autorefs
 - opt-in explicit API backreferences with Material example cards
-- per-example UV environments, Python versions, environment variables, and timeouts
+- isolated or locked project-level UV execution selected per example
+- per-example Python versions, environment variables, and timeouts
 - content-addressed successful-run cache; unchanged GPU examples do not rerun
 - zero-execution full-gallery rendering from retained results
 - individual, section, glob, and full-gallery selection
@@ -142,6 +143,27 @@ An example's PEP 723 block is its dependency environment:
 # ]
 # ///
 ```
+
+Reuse the current repository environment for an example that should run against the local
+checkout and `uv.lock`:
+
+```python
+# /// script
+# dependencies = [
+#   "earth2studio[dlwp] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+# ]
+#
+# [tool.earth2studio-gallery]
+# environment = "project"
+# groups = ["docs"]
+# ///
+```
+
+Project mode verifies the local lockfile and executes with `uv run --project ... --no-sync`.
+It infers `dlwp` from the local project's dependency declaration, validates explicitly listed
+extras and groups, and never mutates the shared environment. Isolated execution remains the
+default. See the [configuration guide](docs/configuration.md#per-example-execution-environment).
 
 Optional `_gallery.toml` files are inherited down the examples tree. A
 `name.gallery.toml` file applies only to `name.py`:
