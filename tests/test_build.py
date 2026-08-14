@@ -95,8 +95,12 @@ Image.new("RGB", (20, 10), "red").save("result.png")
     assert "pillow" in packages
     assert "environment_variables" not in result.environment
     assert result.environment["project_lock"]["used_by_script_environment"] is False
-    environment_path = config.cache_dir / "runs" / "basics-plot" / "environment.json"
+    run_dir = config.cache_dir / "runs" / "basics-plot"
+    environment_path = run_dir / "environment.json"
     assert json.loads(environment_path.read_text(encoding="utf-8")) == result.environment
+    assert not (run_dir / "outputs").exists()
+    assert not (run_dir / "work").exists()
+    assert (run_dir / "artifacts" / "001-cell-1.png").exists()
     assert any(event.get("duration") is not None for event in result.events)
     page = tmp_path / "docs" / "gallery" / "basics" / "plot.md"
     page_text = page.read_text(encoding="utf-8")
@@ -155,12 +159,12 @@ Image.new("RGB", (20, 10), "red").save("result.png")
         assert image.size == (10, 5)
     notebook_path = tmp_path / "docs" / "gallery" / "_assets" / "basics-plot" / "plot.ipynb"
     notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
-    notebook_environment = notebook["metadata"]["earth2studio_gallery"]["environment"]
-    assert notebook_environment["packages"] == result.environment["packages"]
-    assert "environment_variables" not in notebook_environment
+    notebook_metadata = notebook["metadata"]["earth2studio_gallery"]
+    assert "environment" not in notebook_metadata
+    assert notebook_metadata["script"]["dependencies"] == ["pillow>=11"]
     code_cells = [cell for cell in notebook["cells"] if cell["cell_type"] == "code"]
-    assert any(output.get("name") == "stdout" for output in code_cells[-1]["outputs"])
-    assert any("image/png" in output.get("data", {}) for output in code_cells[-1]["outputs"])
+    assert all(cell["execution_count"] is None for cell in code_cells)
+    assert all(cell["outputs"] == [] for cell in code_cells)
     stages = {event.stage for event in progress}
     assert {"discover", "prepare", "execute", "capture", "render", "image", "complete"} <= stages
     gallery = gallery_path.read_text(encoding="utf-8")
@@ -188,8 +192,17 @@ Image.new("RGB", (20, 10), "red").save("result.png")
         "```markdown\n<!-- e2sg-backreferences: package.api.Thing -->\n```\n"
     )
 
+    retained_outputs = replace(config, cache_output_directory=True)
+    retained_report = GalleryBuilder(retained_outputs).build()
+    retained_result = retained_report.results["basics-plot"]
+    assert retained_result is not None
+    assert retained_result.returncode == 0
+    assert not retained_result.cached
+    assert (run_dir / "outputs" / "result.png").exists()
+
     default_config = GalleryConfig.load(tmp_path / "empty-project")
     assert default_config.backreferences is False
+    assert default_config.cache_output_directory is False
     assert default_config.output_open is False
     assert default_config.output_max_height == 400
 
@@ -204,6 +217,7 @@ Image.new("RGB", (20, 10), "red").save("result.png")
     stale_result = rendered.results["basics-plot"]
     assert stale_result is not None
     assert stale_result.stale
+    assert not (run_dir / "outputs").exists()
     assert rendered.results["basics-missing"] is None
     assert "cell output" in page.read_text(encoding="utf-8")
     rebuilt_gallery = gallery_path.read_text(encoding="utf-8")

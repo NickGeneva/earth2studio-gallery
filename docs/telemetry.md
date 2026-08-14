@@ -79,9 +79,9 @@ include unrelated traffic on a shared host. The end-to-end runtime remains visib
 phase sections so excluding downloads from inference utilization does not hide their cost.
 
 Package and interpreter provenance is stored separately in each retained run's
-`environment.json`, in `manifest.json`, and in the downloadable notebook metadata. See
-[Cached results and rendering](caching.md#durable-results) for the recorded fields and secret
-redaction behavior.
+`environment.json` and `manifest.json`. See
+[Cached results and rendering](caching.md#durable-results) for the recorded fields and
+provenance boundaries.
 
 ## Material theme integration
 

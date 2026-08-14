@@ -8,6 +8,7 @@ examples_dir = "docs/examples"
 docs_dir = "docs"
 output_dir = "docs/gallery"
 cache_dir = ".e2sgallery"
+cache_output_directory = false
 execute = "stale"
 jobs = 1
 fail_fast = true
@@ -41,12 +42,13 @@ uv_args = ["--no-progress"]
 | `extra_dependencies` | Dependencies layered onto inherited example metadata |
 | `uv_args` | Additional arguments passed to `uv run` |
 | `env` | Environment variables supplied to the example process |
+| `cache_output_directory` | Retain the complete execution output directory; defaults to `false` |
 | `optimize_images` | Convert large raster outputs to WebP for the published site |
 | `image_max_width` | Maximum width of a published raster image |
 | `image_max_height` | Maximum height of a published raster image |
 | `image_quality` | WebP quality from 1 to 100 |
 | `image_min_bytes` | Minimum source size to optimize, unless dimensions exceed the limits |
-| `generate_notebooks` | Generate downloadable `.ipynb` files with captured outputs |
+| `generate_notebooks` | Generate clean, unexecuted `.ipynb` downloads without embedded outputs |
 | `backreferences` | Index explicit narrative API links and add example cards at API markers |
 | `output_open` | Expand captured console output by default; defaults to `false` |
 | `output_max_height` | Maximum expanded console height in pixels; defaults to `400` |
@@ -57,6 +59,14 @@ uv_args = ["--no-progress"]
 Values configured through `runner.env` are passed to UV and the example process but are never
 included in retained provenance, manifests, generated Markdown, or downloadable notebook
 metadata.
+
+Each example runs from `.e2sgallery/runs/<example>/outputs/`, so relative paths created by the
+script are isolated from the source tree. With the default `cache_output_directory = false`,
+the gallery copies renderable images into `artifacts/` and then deletes that execution output
+directory. Console output, telemetry, manifests, and provenance are retained separately. Set
+the option to `true` to keep all generated files for debugging or downstream reuse. Files an
+example writes to an absolute path outside its working directory are never managed by the
+gallery.
 
 For Zensical and standalone CLI builds, configure these values under
 `[tool.earth2studio-gallery]` or `[gallery]`. MkDocs builds may set the same values under the
@@ -121,8 +131,8 @@ and dependency groups can be declared in the parent runner configuration or inli
 ```
 
 The gallery validates these names against `[project.optional-dependencies]` and
-`[dependency-groups]`, records them in `environment.json` and notebook metadata, and includes
-the local lockfile in the execution fingerprint. It does not install the selections. Prepare
+`[dependency-groups]`, records them in retained execution provenance, and includes the local
+lockfile in the execution fingerprint. It does not install the selections. Prepare
 the shared environment before building, for example:
 
 ```console

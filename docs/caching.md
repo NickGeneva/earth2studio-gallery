@@ -12,13 +12,20 @@ fingerprint covers the example source, resolved runner configuration, and galler
 version. It is not based on the repository commit, so unrelated commits do not invalidate an
 example.
 
+During execution, relative files are written beneath
+`.e2sgallery/runs/<example>/outputs/`. By default this directory is transient: the gallery
+copies supported images into the retained `artifacts/` directory, then removes every remaining
+execution output, including datasets, checkpoints, and temporary files. Set
+`cache_output_directory = true` to retain the complete directory. Loading an older cache with
+the default setting also removes legacy `work/` and `outputs/` directories.
+
 Each run directory contains an `environment.json` snapshot captured from inside the isolated
 UV harness. It records the actual interpreter, UV environment identifier, sorted installed
 package versions and direct-source commits, UV version and sanitized invocation, effective
 PEP 723 metadata, repository commit and dirty state, and the repository `uv.lock` hash. The
 snapshot explicitly notes that a PEP 723 script environment is resolved independently from
-the repository lockfile. It is also embedded in the downloadable notebook metadata and the
-run's `manifest.json`.
+the repository lockfile. The same provenance is included in the run's `manifest.json` but is
+not embedded in downloadable notebooks.
 
 Environment variables are available to UV and the example process at runtime, including values
 configured through `runner.env`, but they are deliberately excluded from retained provenance.

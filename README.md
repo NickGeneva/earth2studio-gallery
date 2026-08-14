@@ -96,6 +96,11 @@ uv run zensical build
 uv run zensical serve
 ```
 
+Relative files created by an example live in its per-run `outputs/` directory. The gallery
+retains captured images, console output, telemetry, and provenance, but deletes the rest of
+that directory by default. Set `cache_output_directory = true` only when complete execution
+outputs are needed after the run.
+
 The generated pages are ordinary Markdown and compatible HTML, so no Zensical-specific
 rendering layer is required. The repository tests the same generated gallery with both
 Zensical and MkDocs.

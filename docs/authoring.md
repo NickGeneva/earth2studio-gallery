@@ -135,9 +135,10 @@ target remains readable inline and is reported during the documentation build in
 silently linking to the wrong page.
 
 Each generated page offers two downloads by default: the unchanged Jupytext Python
-source and a Jupyter notebook. The notebook contains the converted Markdown and code
-cells, PEP 723 environment metadata, captured console streams, and embedded original
-images, so it opens with the documented outputs already present.
+source and a clean Jupyter notebook. The notebook contains the converted Markdown and code
+cells plus PEP 723 dependency metadata, but it is deliberately unexecuted: execution counts,
+console output, generated images, telemetry, and environment provenance are not embedded. This
+keeps the download small and gives readers a fresh notebook they can run themselves.
 
 ## Custom execution settings
 

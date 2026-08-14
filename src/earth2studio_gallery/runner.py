@@ -87,21 +87,27 @@ def run_example(
         cached = _read_result(manifest_path)
         telemetry_available = not gallery.collect_telemetry or bool(cached.telemetry)
         environment_available = bool(cached.environment)
+        outputs_available = not gallery.cache_output_directory or _execution_outputs_available(
+            run_dir
+        )
         if (
             cached.fingerprint == key
             and cached.returncode == 0
             and telemetry_available
             and environment_available
+            and outputs_available
         ):
             cached.cached = True
+            if not gallery.cache_output_directory and _discard_execution_outputs(run_dir):
+                report(progress, "cache", "discarded retained output directory", name)
             report(progress, "cache", f"hit; reusing {len(cached.artifacts)} artifact(s)", name)
             return cached
 
     if run_dir.exists():
         shutil.rmtree(run_dir)
-    work_dir = run_dir / "work"
+    execution_output_dir = run_dir / "outputs"
     artifact_dir = run_dir / "artifacts"
-    work_dir.mkdir(parents=True)
+    execution_output_dir.mkdir(parents=True)
     artifact_dir.mkdir()
     event_path = run_dir / "events.json"
     environment_path = run_dir / "environment.json"
@@ -151,7 +157,7 @@ def run_example(
         try:
             process = subprocess.Popen(
                 command,
-                cwd=work_dir,
+                cwd=execution_output_dir,
                 env=process_environment,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -191,8 +197,12 @@ def run_example(
     package_count = len(packages) if isinstance(packages, list) else 0
     report(progress, "environment", f"captured {package_count} installed package(s)", name)
     report(progress, "capture", "collecting images and cell output", name)
-    images = _collect_images(work_dir, events, artifact_dir)
+    images = _collect_images(execution_output_dir, events, artifact_dir)
     report(progress, "capture", f"collected {len(images)} image artifact(s)", name)
+    if gallery.cache_output_directory:
+        report(progress, "cache", "retained execution output directory", name)
+    elif _discard_execution_outputs(run_dir):
+        report(progress, "cache", "discarded execution output directory", name)
     telemetry = sampler.result(duration, events)
     if telemetry:
         report(progress, "telemetry", f"recorded {len(sampler.samples)} resource sample(s)", name)
@@ -323,16 +333,18 @@ def cached_result(example: Example, gallery: GalleryConfig) -> RunResult | None:
     if not manifest.exists():
         return None
     result = _read_result(manifest)
+    if not gallery.cache_output_directory:
+        _discard_execution_outputs(manifest.parent)
     if result.returncode != 0:
         return None
     result.cached = True
     result.stale = result.fingerprint != fingerprint(
         example, gallery.example_config(example.source), gallery.root
-    )
+    ) or (gallery.cache_output_directory and not _execution_outputs_available(manifest.parent))
     return result
 
 
-def _collect_images(work: Path, events: list[dict[str, object]], destination: Path) -> list[str]:
+def _collect_images(output: Path, events: list[dict[str, object]], destination: Path) -> list[str]:
     discovered: dict[str, int] = {}
     for event in events:
         images = event.get("images")
@@ -341,12 +353,12 @@ def _collect_images(work: Path, events: list[dict[str, object]], destination: Pa
         if isinstance(images, list):
             for item in images:
                 discovered[str(item)] = cell_number
-    for item in work.rglob("*"):
+    for item in output.rglob("*"):
         if item.is_file() and item.suffix.lower() in IMAGE_SUFFIXES:
-            discovered.setdefault(str(item.relative_to(work)), -1)
+            discovered.setdefault(str(item.relative_to(output)), -1)
     artifacts: list[str] = []
     for number, (relative, cell) in enumerate(discovered.items(), 1):
-        source = work / relative
+        source = output / relative
         if not source.exists():
             continue
         name = f"{number:03d}-cell-{cell}{source.suffix.lower()}"
@@ -355,6 +367,24 @@ def _collect_images(work: Path, events: list[dict[str, object]], destination: Pa
     if artifacts:
         _thumbnail(destination / artifacts[0], destination / "thumbnail.webp")
     return artifacts
+
+
+def _discard_execution_outputs(run_dir: Path) -> bool:
+    removed = False
+    for name in ("outputs", "work"):
+        path = run_dir / name
+        if path.is_symlink() or path.is_file():
+            path.unlink()
+        elif path.is_dir():
+            shutil.rmtree(path)
+        else:
+            continue
+        removed = True
+    return removed
+
+
+def _execution_outputs_available(run_dir: Path) -> bool:
+    return (run_dir / "outputs").is_dir()
 
 
 def _thumbnail(source: Path, destination: Path) -> None:

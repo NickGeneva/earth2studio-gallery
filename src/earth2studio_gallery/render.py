@@ -96,7 +96,7 @@ def render_example(
     ]
     if config.generate_notebooks:
         notebook_asset = asset_dir / example.source.with_suffix(".ipynb").name
-        build_notebook(example, result, config, notebook_asset)
+        build_notebook(example, notebook_asset)
         notebook_link = (asset_prefix / notebook_asset.name).as_posix()
         downloads.append(
             f'<a class="e2sg-download" href="{notebook_link}" download>'
