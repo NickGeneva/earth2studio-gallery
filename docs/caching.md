@@ -10,7 +10,8 @@ images, cell output, and telemetry. This is the state that a GPU workflow should
 between runs. A result's
 fingerprint covers the example source, resolved runner configuration, and gallery runner
 version. It is not based on the repository commit, so unrelated commits do not invalidate an
-example.
+example. Project-mode fingerprints also ignore `uv.lock` changes by default. Set
+`invalidate_on_lock_change = true` to opt into lockfile-based invalidation.
 
 During execution, relative files are written beneath
 `.e2sgallery/runs/<example>/outputs/`. By default this directory is transient: the gallery

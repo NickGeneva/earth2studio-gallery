@@ -44,11 +44,18 @@ class _ScriptEnvironment:
     groups: tuple[str, ...] = ()
 
 
-def fingerprint(example: Example, config: ExampleConfig, project_root: Path | None = None) -> str:
+def fingerprint(
+    example: Example,
+    config: ExampleConfig,
+    project_root: Path | None = None,
+    *,
+    invalidate_on_lock_change: bool = False,
+) -> str:
+    """Return the cache key for an example and its execution settings."""
     digest = hashlib.blake2b(digest_size=20)
     digest.update(example.source.read_bytes())
     digest.update(json.dumps(asdict(config), sort_keys=True).encode())
-    if project_root is not None:
+    if project_root is not None and invalidate_on_lock_change:
         metadata = _script_metadata(example.source, project_root)
         try:
             environment = _script_environment(metadata, project_root, config)
@@ -80,7 +87,12 @@ def run_example(
         )
         metadata_error = str(exc)
     report(progress, "cache", "checking source and runner fingerprint", name)
-    key = fingerprint(example, run_config, gallery.root)
+    key = fingerprint(
+        example,
+        run_config,
+        gallery.root,
+        invalidate_on_lock_change=gallery.invalidate_on_lock_change,
+    )
     run_dir = gallery.cache_dir / "runs" / example.slug
     manifest_path = run_dir / "manifest.json"
     if not force and manifest_path.exists():
@@ -339,7 +351,10 @@ def cached_result(example: Example, gallery: GalleryConfig) -> RunResult | None:
         return None
     result.cached = True
     result.stale = result.fingerprint != fingerprint(
-        example, gallery.example_config(example.source), gallery.root
+        example,
+        gallery.example_config(example.source),
+        gallery.root,
+        invalidate_on_lock_change=gallery.invalidate_on_lock_change,
     ) or (gallery.cache_output_directory and not _execution_outputs_available(manifest.parent))
     return result
 

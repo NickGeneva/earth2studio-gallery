@@ -9,6 +9,7 @@ docs_dir = "docs"
 output_dir = "docs/gallery"
 cache_dir = ".e2sgallery"
 cache_output_directory = false
+invalidate_on_lock_change = false
 execute = "stale"
 jobs = 1
 fail_fast = true
@@ -43,6 +44,7 @@ uv_args = ["--no-progress"]
 | `uv_args` | Additional arguments passed to `uv run` |
 | `env` | Environment variables supplied to the example process |
 | `cache_output_directory` | Retain the complete execution output directory; defaults to `false` |
+| `invalidate_on_lock_change` | Mark project-mode results stale when `uv.lock` changes; defaults to `false` |
 | `optimize_images` | Convert large raster outputs to WebP for the published site |
 | `image_max_width` | Maximum width of a published raster image |
 | `image_max_height` | Maximum height of a published raster image |
@@ -131,9 +133,12 @@ and dependency groups can be declared in the parent runner configuration or inli
 ```
 
 The gallery validates these names against `[project.optional-dependencies]` and
-`[dependency-groups]`, records them in retained execution provenance, and includes the local
-lockfile in the execution fingerprint. It does not install the selections. Prepare
-the shared environment before building, for example:
+`[dependency-groups]` and records them in retained execution provenance. It does not install
+the selections. The lockfile hash is recorded for reproducibility but does not invalidate a
+cached result by default, so unrelated dependency updates do not rerun expensive examples.
+Set `invalidate_on_lock_change = true` under `[tool.earth2studio-gallery]` if every lockfile
+change should mark project-mode results stale. Prepare the shared environment before building,
+for example:
 
 ```console
 uv sync --locked --extra data --extra stormcast-conus --group docs

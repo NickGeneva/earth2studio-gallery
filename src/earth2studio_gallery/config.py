@@ -42,6 +42,7 @@ class GalleryConfig:
     image_quality: int = 85
     image_min_bytes: int = 131072
     cache_output_directory: bool = False
+    invalidate_on_lock_change: bool = False
     generate_notebooks: bool = True
     backreferences: bool = False
     output_open: bool = False
@@ -106,6 +107,7 @@ class GalleryConfig:
             image_quality=min(100, max(1, int(data.get("image_quality", 85)))),
             image_min_bytes=max(0, int(data.get("image_min_bytes", 131072))),
             cache_output_directory=bool(data.get("cache_output_directory", False)),
+            invalidate_on_lock_change=bool(data.get("invalidate_on_lock_change", False)),
             generate_notebooks=bool(data.get("generate_notebooks", True)),
             backreferences=bool(data.get("backreferences", False)),
             output_open=bool(data.get("output_open", False)),

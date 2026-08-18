@@ -127,9 +127,10 @@ uv run mkdocs serve
 ```
 
 `execute: stale` reuses a successful run when the script and its runner settings
-have not changed. For CI, a useful split is to execute selected examples on GPU
-workers, retain `.e2sgallery/`, and run `e2s-gallery render` followed by Zensical on a
-CPU documentation worker.
+have not changed. Project-mode results do not become stale solely because `uv.lock` changes;
+set `invalidate_on_lock_change = true` to opt into that behavior. For CI, a useful split is to
+execute selected examples on GPU workers, retain `.e2sgallery/`, and run
+`e2s-gallery render` followed by Zensical on a CPU documentation worker.
 
 `e2s-gallery render` reconstructs the entire generated gallery from `.e2sgallery` without
 executing examples. Retained cards are marked `Cached`, `Stale`, or `Missing` by comparing the

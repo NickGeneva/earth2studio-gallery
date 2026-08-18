@@ -12,9 +12,10 @@ from PIL import Image
 from earth2studio_gallery.backreferences import render_backreferences
 from earth2studio_gallery.builder import GalleryBuilder
 from earth2studio_gallery.config import GalleryConfig
+from earth2studio_gallery.discovery import discover
 from earth2studio_gallery.progress import ProgressEvent
 from earth2studio_gallery.render import _console_output, _event_console
-from earth2studio_gallery.runner import _script_environment, _script_metadata
+from earth2studio_gallery.runner import _script_environment, _script_metadata, fingerprint
 
 
 @pytest.mark.skipif(shutil.which("uv") is None, reason="uv is required for execution")
@@ -203,6 +204,7 @@ Image.new("RGB", (20, 10), "red").save("result.png")
     default_config = GalleryConfig.load(tmp_path / "empty-project")
     assert default_config.backreferences is False
     assert default_config.cache_output_directory is False
+    assert default_config.invalidate_on_lock_change is False
     assert default_config.output_open is False
     assert default_config.output_max_height == 400
 
@@ -345,6 +347,34 @@ print(VALUE)
     assert resolved.mode == "isolated"
     assert resolved.extras == ()
     assert resolved.groups == ()
+
+
+def test_project_lockfile_invalidation_is_opt_in(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        """[project]
+name = "demo-project"
+version = "0.1.0"
+
+[tool.earth2studio-gallery.runner]
+environment = "project"
+""",
+        encoding="utf-8",
+    )
+    example_path = tmp_path / "examples" / "project_mode.py"
+    example_path.parent.mkdir()
+    example_path.write_text("print('stable source')\n", encoding="utf-8")
+    lockfile = tmp_path / "uv.lock"
+    lockfile.write_text("version = 1\n", encoding="utf-8")
+    config = GalleryConfig.load(tmp_path)
+    example = discover(config)[0]
+    runner = config.example_config(example.source)
+
+    default_key = fingerprint(example, runner, tmp_path)
+    locked_key = fingerprint(example, runner, tmp_path, invalidate_on_lock_change=True)
+    lockfile.write_text("version = 2\n", encoding="utf-8")
+
+    assert fingerprint(example, runner, tmp_path) == default_key
+    assert fingerprint(example, runner, tmp_path, invalidate_on_lock_change=True) != locked_key
 
 
 def test_console_output_cleans_control_codes_and_only_styles_failures() -> None:
