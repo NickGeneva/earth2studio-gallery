@@ -158,7 +158,7 @@ def _console_output(value: str, *, failed: bool, open_by_default: bool) -> str:
     return (
         f'<details class="e2sg-output{modifier}"{open_attribute}>'
         f"<summary><span>{label}</span><small>{line_count} {lines}</small></summary>"
-        f"<pre><code>{html.escape(value, quote=False)}</code></pre></details>"
+        f'<pre class="no-copy"><code>{html.escape(value, quote=False)}</code></pre></details>'
     )
 
 

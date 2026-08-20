@@ -110,6 +110,8 @@ Image.new("RGB", (20, 10), "red").save("result.png")
     assert '<details class="e2sg-output" open>' in page_text
     assert "Console output" in page_text
     assert "Standard error" not in page_text
+    assert '<pre class="no-copy"><code>' in page_text
+    assert "md-code__button" not in page_text
     assert "[`Thing`](../../api/thing.md#package.api.Thing)" in page_text
     assert "[`create_thing`](../../api/thing.md#package.api.create_thing)" in page_text
     assert "Download Jupyter notebook" in page_text
