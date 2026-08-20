@@ -230,6 +230,32 @@ Image.new("RGB", (20, 10), "red").save("result.png")
     assert 'class="e2sg-card-placeholder-icon"><svg' in rebuilt_gallery
     assert ">PY</span>" not in rebuilt_gallery
 
+    failing = tmp_path / "examples" / "basics" / "failure.py"
+    failing.write_text(
+        '''# %%
+"""Failed Fetch
+============
+"""
+# /// script
+# dependencies = []
+# ///
+# %%
+import sys
+
+print("request diagnostics", file=sys.stderr)
+raise RuntimeError("deliberate fetch failure")
+''',
+        encoding="utf-8",
+    )
+    failure_report = GalleryBuilder(config).build(["failure"], force=True)
+    failure_result = failure_report.results["basics-failure"]
+    assert failure_result is not None
+    assert failure_result.returncode == 1
+    assert failure_result.error is not None
+    assert "request diagnostics" in failure_result.error
+    assert "Traceback (most recent call last)" in failure_result.error
+    assert "RuntimeError: deliberate fetch failure" in failure_result.error
+
 
 def test_self_hosted_git_dependency_uses_current_checkout(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text(

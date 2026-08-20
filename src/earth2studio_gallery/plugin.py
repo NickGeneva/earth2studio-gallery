@@ -76,6 +76,12 @@ class GalleryPlugin(BasePlugin):
         log.info("Generating Earth2Studio gallery from %s", gallery.examples_dir)
         report = GalleryBuilder(gallery, progress=_log_progress).build()
         if report.failures:
+            for example, result in report.failures:
+                log.error(
+                    "%s:\n%s",
+                    example.relative.as_posix(),
+                    result.error or "execution failed",
+                )
             names = ", ".join(example.relative.as_posix() for example, _ in report.failures)
             raise RuntimeError(f"Gallery examples failed: {names}")
         css = "assets/stylesheets/earth2studio-gallery.css"

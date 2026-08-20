@@ -196,6 +196,8 @@ def run_example(
     else:
         report(progress, "execute", f"completed in {duration:.1f}s", name)
     events = json.loads(event_path.read_text(encoding="utf-8")) if event_path.exists() else []
+    if returncode and (event_error := _failed_event_error(events)):
+        error = event_error
     environment = _environment_provenance(
         environment_path,
         gallery,
@@ -259,6 +261,18 @@ def _communicate_with_heartbeats(
             if elapsed >= next_heartbeat:
                 report(progress, "execute", f"still running ({elapsed:.0f}s elapsed)", name)
                 next_heartbeat += 30.0
+
+
+def _failed_event_error(events: list[dict[str, object]]) -> str | None:
+    """Return the captured traceback or output from the failed example cell."""
+    for event in reversed(events):
+        if not event.get("failed"):
+            continue
+        for stream in ("stderr", "output", "stdout"):
+            value = event.get(stream)
+            if isinstance(value, str) and value.strip():
+                return value.strip()[-8000:]
+    return None
 
 
 def _execution_command(
