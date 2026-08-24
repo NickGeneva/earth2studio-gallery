@@ -61,6 +61,7 @@ class GalleryConfig:
         docs_dir: str | Path = "docs",
         output_dir: str | Path = "gallery",
         cache_dir: str | Path = ".e2sgallery",
+        config_file: str | Path | None = None,
         overrides: dict[str, Any] | None = None,
     ) -> GalleryConfig:
         """Load settings from the project files and explicit overrides."""
@@ -68,12 +69,24 @@ class GalleryConfig:
         data: dict[str, Any] = {}
         pyproject = root_path / "pyproject.toml"
         gallery_toml = root_path / "gallery.toml"
+        project_data: dict[str, Any] = {}
         if pyproject.exists():
             raw = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-            data.update(raw.get("tool", {}).get("earth2studio-gallery", {}))
+            values = raw.get("tool", {}).get("earth2studio-gallery", {})
+            if not isinstance(values, dict):
+                raise ValueError("[tool.earth2studio-gallery] must be a table")
+            project_data.update(values)
+        referenced = config_file or project_data.pop("config_file", None)
+        if referenced:
+            if not isinstance(referenced, (str, Path)):
+                raise ValueError("config_file must be a path")
+            referenced_path = Path(referenced)
+            if not referenced_path.is_absolute():
+                referenced_path = root_path / referenced_path
+            data.update(_gallery_file(referenced_path))
+        data.update(project_data)
         if gallery_toml.exists():
-            raw = tomllib.loads(gallery_toml.read_text(encoding="utf-8"))
-            data.update(raw.get("gallery", raw))
+            data.update(_gallery_file(gallery_toml))
         data.update(overrides or {})
 
         def path_value(key: str, fallback: str | Path) -> Path:
@@ -183,6 +196,16 @@ def _environment_mode(value: object) -> str:
     if not isinstance(value, str) or value not in {"isolated", "project"}:
         raise ValueError("runner environment must be 'isolated' or 'project'")
     return value
+
+
+def _gallery_file(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        raise FileNotFoundError(f"gallery configuration file not found: {path}")
+    raw = tomllib.loads(path.read_text(encoding="utf-8"))
+    values = raw.get("gallery", raw)
+    if not isinstance(values, dict):
+        raise ValueError(f"[gallery] in {path} must be a table")
+    return values
 
 
 def _string_tuple(value: object, name: str) -> tuple[str, ...]:

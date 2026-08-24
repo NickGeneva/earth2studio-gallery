@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import html
 import json
+import posixpath
 import re
 from collections.abc import Callable
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from .cards import render_gallery_card
 from .config import GalleryConfig
@@ -166,14 +167,20 @@ def _registry_entry(example: Example, config: GalleryConfig) -> dict[str, str | 
 
 def _cards(page: Path, target: str, examples: list[Example], config: GalleryConfig) -> str:
     output = config.output_dir.relative_to(config.docs_dir)
-    page_parent = page.relative_to(config.docs_dir).parent
-    prefix = "../" * len(page_parent.parts)
+    page_relative = PurePosixPath(page.relative_to(config.docs_dir).as_posix())
+    page_directory = (
+        page_relative.parent if page_relative.stem == "index" else page_relative.with_suffix("")
+    )
     cards = []
     for example in examples:
-        link = prefix + (output / example.relative.with_suffix("")).as_posix() + "/"
+        example_page = output / example.relative.with_suffix("")
+        link = posixpath.relpath(example_page.as_posix(), page_directory.as_posix()) + "/"
         thumbnail = config.output_dir / "_assets" / example.slug / "thumbnail.webp"
         thumbnail_url = (
-            prefix + (output / "_assets" / example.slug / "thumbnail.webp").as_posix()
+            posixpath.relpath(
+                (output / "_assets" / example.slug / "thumbnail.webp").as_posix(),
+                page_directory.as_posix(),
+            )
             if thumbnail.exists()
             else None
         )

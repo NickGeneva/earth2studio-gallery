@@ -1,0 +1,6 @@
+[gallery]
+examples_dir = "docs/examples"
+backreferences = true
+collect_telemetry = true
+telemetry_interval = 1.0
+download_button_color = "#76b900"

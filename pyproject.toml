@@ -47,11 +47,7 @@ packages = ["src/earth2studio_gallery"]
 testpaths = ["tests"]
 
 [tool.earth2studio-gallery]
-examples_dir = "docs/examples"
-backreferences = true
-collect_telemetry = true
-telemetry_interval = 1.0
-download_button_color = "#76b900"
+config_file = ".config/earth2studio-gallery.toml"
 
 [tool.black]
 line-length = 100

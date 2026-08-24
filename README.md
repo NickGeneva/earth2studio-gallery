@@ -47,10 +47,19 @@ unique filename stem, or a glob.
 
 ## Zensical configuration
 
-The standalone CLI used with Zensical reads project settings from `pyproject.toml`:
+The standalone CLI used with Zensical can keep its settings in the documentation tree. Point to
+the file from `pyproject.toml`:
 
 ```toml
 [tool.earth2studio-gallery]
+config_file = ".config/earth2studio-gallery.toml"
+```
+
+Then place the settings in `.config/earth2studio-gallery.toml`. Keeping it outside `docs/`
+prevents the documentation backend from publishing the configuration as a site asset:
+
+```toml
+[gallery]
 examples_dir = "examples"
 output_dir = "docs/gallery"
 execute = "stale"
@@ -60,6 +69,10 @@ output_open = false
 output_max_height = 400
 download_button_color = "#76b900"
 ```
+
+Paths remain relative to the project root. Inline project settings, a root `gallery.toml`, and
+`--config-file` are also supported; see the
+[configuration guide](docs/configuration.md) for precedence and runner settings.
 
 Zensical can read the Material settings in an existing `mkdocs.yml`:
 
@@ -195,9 +208,9 @@ CUDA_VISIBLE_DEVICES = "0"
 EARTH2STUDIO_CACHE = "/scratch/earth2studio"
 ```
 
-Root defaults can live in `gallery.toml` under `[gallery]` and
-`[gallery.runner]`, or in `pyproject.toml` under
-`[tool.earth2studio-gallery]` and `[tool.earth2studio-gallery.runner]`.
+Root defaults can live in a referenced file or `gallery.toml` under `[gallery]` and
+`[gallery.runner]`, or directly in `pyproject.toml` under `[tool.earth2studio-gallery]` and
+`[tool.earth2studio-gallery.runner]`.
 
 ## Authoring format
 

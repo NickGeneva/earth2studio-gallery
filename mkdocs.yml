@@ -35,13 +35,8 @@ plugins:
   - search
   - autorefs
   - earth2studio-gallery:
-      examples_dir: docs/examples
-      output_dir: gallery
+      config_file: .config/earth2studio-gallery.toml
       execute: never
-      jobs: 1
-      backreferences: true
-      collect_telemetry: true
-      download_button_color: "#76b900"
 
 # Zensical does not execute third-party MkDocs plugin hooks yet, so declare the
 # generated gallery stylesheet explicitly. The MkDocs plugin de-duplicates it.

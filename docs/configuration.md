@@ -1,9 +1,18 @@
 # Configuration
 
-Project defaults can be placed in `pyproject.toml`:
+For larger galleries, keep the settings beside the documentation and leave only a pointer in
+`pyproject.toml`:
 
 ```toml
 [tool.earth2studio-gallery]
+config_file = ".config/earth2studio-gallery.toml"
+```
+
+The referenced file uses the existing standalone configuration schema:
+
+```toml
+# .config/earth2studio-gallery.toml
+[gallery]
 examples_dir = "docs/examples"
 docs_dir = "docs"
 output_dir = "docs/gallery"
@@ -26,13 +35,22 @@ download_button_color = "#76b900"
 collect_telemetry = false
 telemetry_interval = 1.0
 
-[tool.earth2studio-gallery.runner]
+[gallery.runner]
 timeout = 7200
 uv_args = ["--no-progress"]
 ```
 
+Paths inside a referenced file remain relative to the project root, not the file's directory.
+Keep the file outside `docs/` so Zensical and MkDocs do not publish it as a static site asset.
+Inline `[tool.earth2studio-gallery]` values override the referenced file, so a project can keep a
+small local override without duplicating the main configuration. A root `gallery.toml` remains
+supported and takes precedence over both; explicit CLI or plugin options take final precedence.
+The standalone CLI can also select a file directly with
+`e2s-gallery --config-file .config/earth2studio-gallery.toml build`.
+
 | Setting | Purpose |
 | --- | --- |
+| `config_file` | TOML settings file relative to the project root |
 | `execute` | `stale`, `always`, or `never` execution policy |
 | `jobs` | Concurrent examples; keep at `1` for a single GPU |
 | `timeout` | Maximum seconds for each example |
@@ -70,10 +88,10 @@ the option to `true` to keep all generated files for debugging or downstream reu
 example writes to an absolute path outside its working directory are never managed by the
 gallery.
 
-For Zensical and standalone CLI builds, configure these values under
-`[tool.earth2studio-gallery]` or `[gallery]`. MkDocs builds may set the same values under the
-`earth2studio-gallery` plugin. Because Zensical does not execute that plugin hook, values that
-exist only in `mkdocs.yml` do not configure the standalone command.
+For Zensical and standalone CLI builds, configure these values in a referenced file, under
+`[tool.earth2studio-gallery]`, or in a root `gallery.toml`. MkDocs builds may set `config_file`
+or the same values under the `earth2studio-gallery` plugin. Because Zensical does not execute
+that plugin hook, values that exist only in `mkdocs.yml` do not configure the standalone command.
 
 When backreferences are enabled, generate API Markdown before running the gallery command.
 Each API object needs a `<!-- e2sg-backreferences: package.object -->` marker. The registry
@@ -91,10 +109,10 @@ Python versions and incompatible dependency sets without changing the documentat
 environment.
 
 To reuse the repository's existing UV project environment for every example, set the default in
-the parent `pyproject.toml`:
+the referenced file:
 
 ```toml
-[tool.earth2studio-gallery.runner]
+[gallery.runner]
 environment = "project"
 extras = ["data", "stormcast-conus"]
 groups = ["docs"]
@@ -136,9 +154,9 @@ The gallery validates these names against `[project.optional-dependencies]` and
 `[dependency-groups]` and records them in retained execution provenance. It does not install
 the selections. The lockfile hash is recorded for reproducibility but does not invalidate a
 cached result by default, so unrelated dependency updates do not rerun expensive examples.
-Set `invalidate_on_lock_change = true` under `[tool.earth2studio-gallery]` if every lockfile
-change should mark project-mode results stale. Prepare the shared environment before building,
-for example:
+Set `invalidate_on_lock_change = true` under `[gallery]` (or
+`[tool.earth2studio-gallery]`) if every lockfile change should mark project-mode results stale.
+Prepare the shared environment before building, for example:
 
 ```console
 uv sync --locked --extra data --extra stormcast-conus --group docs

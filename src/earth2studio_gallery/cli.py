@@ -23,6 +23,7 @@ def _console_progress(event: ProgressEvent) -> None:
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(prog="e2s-gallery")
     result.add_argument("--root", default=".", help="project root (default: current directory)")
+    result.add_argument("--config-file", help="gallery TOML file, relative to the project root")
     result.add_argument("--examples-dir", default="examples")
     result.add_argument("--docs-dir", default="docs")
     subcommands = result.add_subparsers(dest="command", required=True)
@@ -49,6 +50,7 @@ def main(argv: list[str] | None = None) -> int:
         args.root,
         examples_dir=args.examples_dir,
         docs_dir=args.docs_dir,
+        config_file=args.config_file,
         overrides=overrides,
     )
     if args.command == "list":

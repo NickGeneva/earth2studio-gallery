@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from mkdocs.config import config_options
 from mkdocs.plugins import BasePlugin
@@ -20,6 +21,7 @@ def _log_progress(event: ProgressEvent) -> None:
 
 class GalleryPlugin(BasePlugin):
     config_scheme = (
+        ("config_file", config_options.Type(str, default="")),
         ("examples_dir", config_options.Type(str, default="examples")),
         ("output_dir", config_options.Type(str, default="gallery")),
         ("cache_dir", config_options.Type(str, default=".e2sgallery")),
@@ -42,12 +44,16 @@ class GalleryPlugin(BasePlugin):
         ("telemetry_interval", config_options.Type(float, default=1.0)),
     )
 
+    def load_config(self, options: dict[str, Any], config_file_path: str | None = None):
+        self._explicit_options = set(options)
+        return super().load_config(options, config_file_path)
+
     def on_config(self, config, **kwargs):
         config_file = Path(config.config_file_path or ".").resolve()
         root = config_file.parent if config_file.is_file() else config_file
-        overrides = {
+        plugin_values = {
             "examples_dir": self.config["examples_dir"],
-            "output_dir": Path(config.docs_dir) / self.config["output_dir"],
+            "output_dir": self.config["output_dir"],
             "cache_dir": self.config["cache_dir"],
             "execute": self.config["execute"],
             "jobs": self.config["jobs"],
@@ -65,12 +71,16 @@ class GalleryPlugin(BasePlugin):
             "output_max_height": self.config["output_max_height"],
             "collect_telemetry": self.config["collect_telemetry"],
             "telemetry_interval": self.config["telemetry_interval"],
+            "download_button_color": self.config["download_button_color"],
         }
-        if self.config["download_button_color"]:
-            overrides["download_button_color"] = self.config["download_button_color"]
+        explicit = getattr(self, "_explicit_options", set(plugin_values))
+        overrides = {key: value for key, value in plugin_values.items() if key in explicit}
+        if "output_dir" in overrides:
+            overrides["output_dir"] = Path(config.docs_dir) / str(overrides["output_dir"])
         gallery = GalleryConfig.load(
             root,
             docs_dir=config.docs_dir,
+            config_file=self.config["config_file"] or None,
             overrides=overrides,
         )
         log.info("Generating Earth2Studio gallery from %s", gallery.examples_dir)

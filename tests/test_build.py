@@ -72,6 +72,14 @@ Image.new("RGB", (20, 10), "red").save("result.png")
         "<!-- e2sg-backreferences: package.api.create_thing -->\n",
         encoding="utf-8",
     )
+    nested_api_page = (
+        tmp_path / "docs" / "modules" / "generated" / "data" / "analysis" / "GFS.md"
+    )
+    nested_api_page.parent.mkdir(parents=True)
+    nested_api_page.write_text(
+        "# Nested Thing API\n\n<!-- e2sg-backreferences: package.api.Thing -->\n",
+        encoding="utf-8",
+    )
     guide = tmp_path / "docs" / "guide.md"
     guide.write_text(
         "```markdown\n<!-- e2sg-backreferences: package.api.Thing -->\n```\n",
@@ -181,8 +189,11 @@ Image.new("RGB", (20, 10), "red").save("result.png")
     assert "Examples using <code>package.api.Thing</code>" in api_text
     assert "Examples using <code>package.api.create_thing</code>" in api_text
     assert "<!-- markdownlint-disable MD033 -->" in api_text
-    assert 'href="../gallery/basics/plot/"' in api_text
-    assert 'src="../gallery/_assets/basics-plot/thumbnail.webp"' in api_text
+    assert 'href="../../gallery/basics/plot/"' in api_text
+    assert 'src="../../gallery/_assets/basics-plot/thumbnail.webp"' in api_text
+    nested_api_text = nested_api_page.read_text(encoding="utf-8")
+    assert 'href="../../../../../gallery/basics/plot/"' in nested_api_text
+    assert 'src="../../../../../gallery/_assets/basics-plot/thumbnail.webp"' in nested_api_text
     backreferences = json.loads(
         (config.cache_dir / "backreferences.json").read_text(encoding="utf-8")
     )

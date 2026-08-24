@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from earth2studio_gallery.config import GalleryConfig
 from earth2studio_gallery.discovery import discover
 
@@ -53,3 +55,47 @@ groups = ["docs"]
     assert runner.groups == ("docs",)
     assert runner.extra_dependencies == ("base", "extra")
     assert runner.env == {"A": "1", "B": "2"}
+
+
+def test_loads_referenced_gallery_configuration(tmp_path: Path) -> None:
+    config_file = tmp_path / ".config" / "earth2studio-gallery.toml"
+    config_file.parent.mkdir()
+    config_file.write_text(
+        """[gallery]
+examples_dir = "example-sources"
+output_dir = "docs/generated-examples"
+jobs = 2
+backreferences = true
+
+[gallery.runner]
+environment = "project"
+groups = ["docs"]
+timeout = 600
+""",
+        encoding="utf-8",
+    )
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[tool.earth2studio-gallery]
+config_file = ".config/earth2studio-gallery.toml"
+jobs = 3
+""",
+        encoding="utf-8",
+    )
+
+    config = GalleryConfig.load(tmp_path)
+
+    assert config.examples_dir == tmp_path / "example-sources"
+    assert config.output_dir == tmp_path / "docs" / "generated-examples"
+    assert config.jobs == 3
+    assert config.backreferences is True
+    assert config.default.environment == "project"
+    assert config.default.groups == ("docs",)
+    assert config.default.timeout == 600
+
+    pyproject.write_text(
+        '[tool.earth2studio-gallery]\nconfig_file = "docs/missing.toml"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(FileNotFoundError, match="docs.missing.toml"):
+        GalleryConfig.load(tmp_path)
