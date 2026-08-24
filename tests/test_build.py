@@ -72,9 +72,7 @@ Image.new("RGB", (20, 10), "red").save("result.png")
         "<!-- e2sg-backreferences: package.api.create_thing -->\n",
         encoding="utf-8",
     )
-    nested_api_page = (
-        tmp_path / "docs" / "modules" / "generated" / "data" / "analysis" / "GFS.md"
-    )
+    nested_api_page = tmp_path / "docs" / "modules" / "generated" / "data" / "analysis" / "GFS.md"
     nested_api_page.parent.mkdir(parents=True)
     nested_api_page.write_text(
         "# Nested Thing API\n\n<!-- e2sg-backreferences: package.api.Thing -->\n",
@@ -289,7 +287,7 @@ def test_self_hosted_git_dependency_uses_current_checkout(tmp_path: Path) -> Non
 
 
 @pytest.mark.skipif(shutil.which("uv") is None, reason="uv is required for execution")
-def test_project_environment_reuses_locked_local_checkout(tmp_path: Path) -> None:
+def test_project_environment_syncs_locked_local_checkout(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text(
         """[build-system]
 requires = ["hatchling>=1.27"]
@@ -308,6 +306,7 @@ examples = []
 [tool.earth2studio-gallery.runner]
 environment = "project"
 groups = ["examples"]
+uv_args = ["--no-progress"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/demo_project"]
@@ -342,11 +341,12 @@ print(VALUE)
         encoding="utf-8",
     )
     subprocess.run(
-        ["uv", "sync", "--project", str(tmp_path), "--no-default-groups"],
+        ["uv", "lock", "--project", str(tmp_path)],
         check=True,
         capture_output=True,
         text=True,
     )
+    assert not (tmp_path / ".venv").exists()
     progress: list[ProgressEvent] = []
 
     report = GalleryBuilder(GalleryConfig.load(tmp_path), progress=progress.append).build()
@@ -364,10 +364,17 @@ print(VALUE)
     assert "--project" in command
     assert "--no-sync" in command
     assert "--script" not in command
+    sync_command = result.environment["uv"]["sync_command"]
+    assert sync_command[:2] == ["uv", "sync"]
+    assert "--no-progress" in sync_command
+    assert "--locked" in sync_command
+    assert sync_command[sync_command.index("--extra") + 1] == "feature"
+    assert sync_command[sync_command.index("--group") + 1] == "examples"
     assert result.environment["python"]["uv_environment"] == ".venv"
     packages = {package["name"]: package for package in result.environment["packages"]}
     assert packages["demo-project"]["source"] == {"type": "local", "editable": True}
     assert any(event.stage == "lock" for event in progress)
+    assert any(event.stage == "sync" for event in progress)
     page = tmp_path / "docs" / "gallery" / "project_mode.md"
     assert "local checkout" in page.read_text(encoding="utf-8")
 

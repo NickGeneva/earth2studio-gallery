@@ -82,9 +82,9 @@ uv run e2s-gallery build "02_plotting/*sine*"
 ```
 
 UV caches isolated environments described by scripts, while Earth2Studio Gallery caches
-successful run artifacts. Examples that opt into project execution reuse the repository's
-existing locked environment without syncing it. Repeating either command avoids unnecessary
-setup and execution.
+successful run artifacts. Examples that opt into project execution synchronize and reuse the
+repository's locked environment. Repeating either command avoids unnecessary execution, and a
+project sync only changes packages when the selected environment differs.
 
 ## Understand result status
 

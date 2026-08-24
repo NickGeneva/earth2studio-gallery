@@ -44,9 +44,8 @@ Markdown, code cells become highlighted Python, printed text becomes an output b
 and created images appear after the cell that produced them.
 
 The PEP 723 block normally creates an isolated UV script environment. The parent
-`pyproject.toml` can select the repository's already-synchronized project environment for all
-examples, while `[tool.earth2studio-gallery]` inside a block can override that default for one
-example:
+`pyproject.toml` can select the repository's project environment for all examples, while
+`[tool.earth2studio-gallery]` inside a block can override that default for one example:
 
 ```python
 # [tool.earth2studio-gallery]
@@ -54,10 +53,12 @@ example:
 # groups = ["docs"]
 ```
 
-Project mode verifies the repository's `uv.lock` and runs without syncing. Project extras are
-inferred from a dependency such as `earth2studio[data,stormcast-conus]`; `extras` can also be
-listed explicitly. See [Project execution environments](configuration.md#project-execution-environments)
-for the complete behavior and preparation command.
+Project mode verifies the repository's `uv.lock`, synchronizes the inferred extras and configured
+groups into the repository environment, and then runs the example without another sync. Project
+extras are inferred from a dependency such as `earth2studio[data,stormcast-conus]`; `extras` can
+also be listed explicitly. See
+[Project execution environments](configuration.md#project-execution-environments) for the
+complete behavior.
 
 ## Python API cross-references
 

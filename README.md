@@ -11,7 +11,7 @@ available for existing projects.
 By default, each example is executed with `uv run --script`, so its
 [PEP 723 inline metadata](https://docs.astral.sh/uv/guides/scripts/) defines a
 small, cached environment of its own. An example can instead opt into the repository's
-locked project environment and run without another dependency sync or build.
+locked project environment, which is synchronized for that example before it runs.
 
 ## Highlights
 
@@ -187,10 +187,11 @@ Alternatively, opt in or override the default for one example inside its PEP 723
 # ///
 ```
 
-Project mode verifies the local lockfile and executes with `uv run --project ... --no-sync`.
-It infers `dlwp` from the local project's dependency declaration, validates explicitly listed
-extras and groups, and never mutates the shared environment. Isolated execution remains the
-default unless the parent runner configuration changes it. See the
+Project mode verifies the local lockfile, synchronizes the inferred extras and configured groups
+with `uv sync --locked --project`, and executes with `uv run --project ... --no-sync`. It infers
+`dlwp` from the local project's dependency declaration and updates the repository environment
+before each example. Isolated execution remains the default unless the parent runner
+configuration changes it. See the
 [configuration guide](docs/configuration.md#project-execution-environments).
 
 Optional `_gallery.toml` files are inherited down the examples tree. A

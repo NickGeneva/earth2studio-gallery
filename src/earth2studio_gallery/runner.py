@@ -7,8 +7,10 @@ import shutil
 import subprocess
 import time
 import tomllib
+from contextlib import nullcontext
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from threading import Lock
 from urllib.parse import urlsplit, urlunsplit
 
 from PIL import Image, ImageOps
@@ -19,6 +21,7 @@ from .progress import ProgressCallback, report
 from .telemetry import TelemetrySampler
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"}
+_PROJECT_ENVIRONMENT_LOCK = Lock()
 
 
 @dataclass(slots=True)
@@ -64,7 +67,7 @@ def fingerprint(
         if environment.mode == "project":
             lockfile = project_root / "uv.lock"
             digest.update(lockfile.read_bytes() if lockfile.exists() else b"missing-uv-lock")
-    digest.update(b"earth2studio-gallery-runner-v6")
+    digest.update(b"earth2studio-gallery-runner-v7")
     return digest.hexdigest()
 
 
@@ -140,61 +143,80 @@ def run_example(
     )
     process_environment = gallery.environment(run_config)
     command = _execution_command(harness_path, gallery.root, run_config, script_environment)
+    sync_command: list[str] | None = None
     preparation_error = metadata_error
     if script_environment.mode == "project" and preparation_error is None:
         details = _project_environment_details(script_environment)
-        report(progress, "environment", f"reusing project environment{details}", name)
+        report(progress, "environment", f"using project environment{details}", name)
         preparation_error = _validate_project_environment(
             gallery.root, script_environment, process_environment
         )
         if preparation_error is None:
             report(progress, "lock", "verified local uv.lock", name)
-    started = time.monotonic()
-    sampler = TelemetrySampler(gallery.collect_telemetry, gallery.telemetry_interval)
-    error: str | None = None
-    if preparation_error is not None:
-        returncode, error = 2, preparation_error
-    else:
-        action = (
-            "reusing project environment without syncing"
-            if script_environment.mode == "project"
-            else "UV resolving isolated environment and running"
-        )
-        report(
-            progress,
-            "execute",
-            f"{action} (timeout {run_config.timeout}s)",
-            name,
-        )
-        try:
-            process = subprocess.Popen(
-                command,
-                cwd=execution_output_dir,
-                env=process_environment,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
+            sync_command = _project_sync_command(gallery.root, run_config, script_environment)
+    guard = _PROJECT_ENVIRONMENT_LOCK if sync_command is not None else nullcontext()
+    with guard:
+        if sync_command is not None:
+            preparation_error = _sync_project_environment(
+                sync_command,
+                gallery.root,
+                process_environment,
+                run_config.timeout,
+                gallery.telemetry_interval,
+                progress,
+                name,
             )
-            sampler.sample(process, started, force=True)
-            stdout, stderr, timed_out = _communicate_with_heartbeats(
-                process, run_config.timeout, started, progress, name, sampler
+        started = time.monotonic()
+        sampler = TelemetrySampler(gallery.collect_telemetry, gallery.telemetry_interval)
+        error: str | None = None
+        if preparation_error is not None:
+            returncode, error = 2, preparation_error
+        else:
+            action = (
+                "running with synchronized project environment"
+                if script_environment.mode == "project"
+                else "UV resolving isolated environment and running"
             )
-            sampler.sample(process, started, force=True)
-            returncode = 124 if timed_out else process.returncode
-            if timed_out:
-                error = (
-                    f"example timed out after {run_config.timeout}s\n"
-                    f"{(stderr or stdout)[-8000:]}"
+            report(
+                progress,
+                "execute",
+                f"{action} (timeout {run_config.timeout}s)",
+                name,
+            )
+            try:
+                process = subprocess.Popen(
+                    command,
+                    cwd=execution_output_dir,
+                    env=process_environment,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
                 )
-            elif returncode:
-                error = (stderr or stdout)[-8000:]
-        except FileNotFoundError:
-            returncode, error = 127, "uv was not found on PATH"
-    duration = time.monotonic() - started
-    if returncode:
-        report(progress, "failed", f"execution exited {returncode} after {duration:.1f}s", name)
-    else:
-        report(progress, "execute", f"completed in {duration:.1f}s", name)
+                sampler.sample(process, started, force=True)
+                stdout, stderr, timed_out = _communicate_with_heartbeats(
+                    process, run_config.timeout, started, progress, name, sampler
+                )
+                sampler.sample(process, started, force=True)
+                returncode = 124 if timed_out else process.returncode
+                if timed_out:
+                    error = (
+                        f"example timed out after {run_config.timeout}s\n"
+                        f"{(stderr or stdout)[-8000:]}"
+                    )
+                elif returncode:
+                    error = (stderr or stdout)[-8000:]
+            except FileNotFoundError:
+                returncode, error = 127, "uv was not found on PATH"
+        duration = time.monotonic() - started
+        if returncode:
+            report(
+                progress,
+                "failed",
+                f"execution exited {returncode} after {duration:.1f}s",
+                name,
+            )
+        else:
+            report(progress, "execute", f"completed in {duration:.1f}s", name)
     events = json.loads(event_path.read_text(encoding="utf-8")) if event_path.exists() else []
     if returncode and (event_error := _failed_event_error(events)):
         error = event_error
@@ -205,6 +227,7 @@ def run_example(
         command,
         harness_path,
         script_environment,
+        sync_command,
     )
     environment_path.write_text(json.dumps(environment, indent=2), encoding="utf-8")
     packages = environment.get("packages", [])
@@ -242,6 +265,8 @@ def _communicate_with_heartbeats(
     progress: ProgressCallback | None,
     name: str,
     sampler: TelemetrySampler,
+    *,
+    stage: str = "execute",
 ) -> tuple[str, str, bool]:
     deadline = started + timeout
     next_heartbeat = 30.0
@@ -259,7 +284,7 @@ def _communicate_with_heartbeats(
             sampler.observe_cpu(process, started)
             sampler.sample(process, started)
             if elapsed >= next_heartbeat:
-                report(progress, "execute", f"still running ({elapsed:.0f}s elapsed)", name)
+                report(progress, stage, f"still running ({elapsed:.0f}s elapsed)", name)
                 next_heartbeat += 30.0
 
 
@@ -299,6 +324,68 @@ def _execution_command(
     for dependency in config.extra_dependencies:
         command += ["--with", dependency]
     return [*command, "--script", str(harness)]
+
+
+def _project_sync_command(
+    project_root: Path,
+    config: ExampleConfig,
+    environment: _ScriptEnvironment,
+) -> list[str]:
+    command = [
+        "uv",
+        "sync",
+        *config.uv_args,
+        "--project",
+        str(project_root),
+        "--locked",
+    ]
+    for extra in environment.extras:
+        command += ["--extra", extra]
+    for group in environment.groups:
+        command += ["--group", group]
+    return command
+
+
+def _sync_project_environment(
+    command: list[str],
+    project_root: Path,
+    process_environment: dict[str, str],
+    timeout: int,
+    telemetry_interval: float,
+    progress: ProgressCallback | None,
+    name: str,
+) -> str | None:
+    report(progress, "sync", "synchronizing locked project environment", name)
+    started = time.monotonic()
+    sampler = TelemetrySampler(False, telemetry_interval)
+    try:
+        process = subprocess.Popen(
+            command,
+            cwd=project_root,
+            env=process_environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        stdout, stderr, timed_out = _communicate_with_heartbeats(
+            process,
+            timeout,
+            started,
+            progress,
+            name,
+            sampler,
+            stage="sync",
+        )
+    except FileNotFoundError:
+        return "uv was not found on PATH"
+    elapsed = time.monotonic() - started
+    if timed_out:
+        return f"project environment sync timed out after {timeout}s\n{(stderr or stdout)[-8000:]}"
+    if process.returncode:
+        reason = (stderr or stdout).strip()
+        return f"project environment sync failed: {reason[-8000:] or 'uv sync exited nonzero'}"
+    report(progress, "sync", f"completed in {elapsed:.1f}s", name)
+    return None
 
 
 def _project_environment_details(environment: _ScriptEnvironment) -> str:
@@ -561,6 +648,7 @@ def _environment_provenance(
     command: list[str],
     harness_path: Path,
     script_environment: _ScriptEnvironment,
+    sync_command: list[str] | None,
 ) -> dict[str, object]:
     captured: dict[str, object] = {}
     if path.exists():
@@ -570,10 +658,13 @@ def _environment_provenance(
                 captured = value
         except (OSError, json.JSONDecodeError):
             pass
-    captured["uv"] = {
+    uv: dict[str, object] = {
         "version": _uv_version(),
         "command": _sanitize_command(command, harness_path),
     }
+    if sync_command is not None:
+        uv["sync_command"] = _sanitize_command(sync_command, harness_path)
+    captured["uv"] = uv
     captured["execution"] = {
         "environment": script_environment.mode,
         "extras": list(script_environment.extras),

@@ -55,11 +55,11 @@ The standalone CLI can also select a file directly with
 | `jobs` | Concurrent examples; keep at `1` for a single GPU |
 | `timeout` | Maximum seconds for each example |
 | `environment` | Execution mode for examples: `isolated` (default) or `project` |
-| `extras` | Project extras expected in an already-synchronized project environment |
-| `groups` | Dependency groups expected in an already-synchronized project environment |
+| `extras` | Project extras synchronized before running an example in project mode |
+| `groups` | Dependency groups synchronized before running an example in project mode |
 | `python` | UV Python request for examples without their own constraint |
 | `extra_dependencies` | Dependencies layered onto inherited example metadata |
-| `uv_args` | Additional arguments passed to `uv run` |
+| `uv_args` | Additional UV arguments; also passed to project-mode synchronization |
 | `env` | Environment variables supplied to the example process |
 | `cache_output_directory` | Retain the complete execution output directory; defaults to `false` |
 | `invalidate_on_lock_change` | Mark project-mode results stale when `uv.lock` changes; defaults to `false` |
@@ -108,8 +108,8 @@ Examples use an isolated PEP 723 environment by default. This lets examples sele
 Python versions and incompatible dependency sets without changing the documentation project's
 environment.
 
-To reuse the repository's existing UV project environment for every example, set the default in
-the referenced file:
+To use the repository's UV project environment for every example, set the default in the
+referenced file:
 
 ```toml
 [gallery.runner]
@@ -133,11 +133,11 @@ default—or opt into project mode when the default is isolated—using its inli
 # ///
 ```
 
-`environment = "project"` requires `pyproject.toml` and `uv.lock` at the gallery root. The
-gallery verifies `uv lock --check`, finds the project environment with `uv run --project`, and
-runs the generated harness with `--no-sync`. Because the harness is passed to `python` instead
-of to `uv run --script`, UV does not create or resolve a PEP 723 environment. The project must
-already be synchronized with every dependency required by the example.
+`environment = "project"` requires `pyproject.toml` and `uv.lock` at the gallery root. Before
+each example, the gallery verifies the lockfile and synchronizes the repository environment with
+`uv sync --locked --project`. It then runs the generated harness with
+`uv run --project ... --no-sync`. Because the harness is passed to `python` instead of to
+`uv run --script`, UV uses the repository's `.venv` rather than creating a PEP 723 environment.
 
 Extras on the dependency whose normalized name matches `[project].name` are inferred for each
 example. In the example above, those are `data` and `stormcast-conus`. Additional project extras
@@ -151,15 +151,19 @@ and dependency groups can be declared in the parent runner configuration or inli
 ```
 
 The gallery validates these names against `[project.optional-dependencies]` and
-`[dependency-groups]` and records them in retained execution provenance. It does not install
-the selections. The lockfile hash is recorded for reproducibility but does not invalidate a
-cached result by default, so unrelated dependency updates do not rerun expensive examples.
-Set `invalidate_on_lock_change = true` under `[gallery]` (or
-`[tool.earth2studio-gallery]`) if every lockfile change should mark project-mode results stale.
-Prepare the shared environment before building, for example:
+`[dependency-groups]`, passes them to the per-example sync, and records them in retained
+execution provenance. UV installs, removes, or relinks packages in the project environment as
+needed before the example starts. Project-mode executions are serialized, even when `jobs` is
+greater than one, so one example cannot change the environment underneath another. Isolated
+examples can still execute concurrently.
+
+The lockfile hash is recorded for reproducibility but does not invalidate a cached result by
+default, so unrelated dependency updates do not rerun expensive examples. Set
+`invalidate_on_lock_change = true` under `[gallery]` (or `[tool.earth2studio-gallery]`) if every
+lockfile change should mark project-mode results stale. The environment is prepared
+automatically when building:
 
 ```console
-uv sync --locked --extra data --extra stormcast-conus --group docs
 uv run e2s-gallery build 04_nowcasting/01_stormcast_example.py
 ```
 
