@@ -169,7 +169,7 @@ def render_indexes(
     for example in examples:
         by_section.setdefault(example.section, []).append(example)
     main: list[str] = [
-        "# Example gallery",
+        "# Example Gallery",
         "",
         "Runnable examples, grouped by topic. Each card opens the complete source, output, "
         "and captured figures.",

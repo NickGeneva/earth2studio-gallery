@@ -177,6 +177,7 @@ Image.new("RGB", (20, 10), "red").save("result.png")
     stages = {event.stage for event in progress}
     assert {"discover", "prepare", "execute", "capture", "render", "image", "complete"} <= stages
     gallery = gallery_path.read_text(encoding="utf-8")
+    assert gallery.startswith("# Example Gallery\n")
     assert "## Basics" in gallery
     assert 'class="e2sg-gallery-card"' in gallery
     assert 'href="basics/plot/"' in gallery
